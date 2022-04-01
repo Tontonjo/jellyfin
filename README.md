@@ -11,8 +11,7 @@
 
 
 ## HDRtoSDR_converter.sh
-This scripts aim to convert H265 HDR content to H264 SDR while trying to keep HDR colors using Tonemap  
-It will look in $inputpath for HDR content and convert them to x264 SDR to $outputpath  
+### Convert your H265 HDR content to H264 SDR while keeping HDR colors using Tonemap
 
 ### Prerequisits:
 - A working GPU decoding setup in jellyfin  
@@ -27,7 +26,9 @@ apt-get install aptitude
 aptitude install nvidia-opencl-icd
 ```
 
-### Usage:
+### Usage:  
+It will look in $inputpath for HDR content and convert them to x264 SDR to $outputpath  
+
 - Put script in a jellyfin container accessible folder
 - Edit path to match your needs and environement
 - Make it executable 
