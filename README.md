@@ -36,5 +36,5 @@ docker exec jellyfin chmod +x /media/HDRtoSDR_converter.sh
 ```
 - Run it  
 ```shell
-docker exec jellyfin /media/HDRtoSDR_converter.sh
+docker exec --user root:users jellyfin /media/HDRtoSDR_converter.sh
 ```
