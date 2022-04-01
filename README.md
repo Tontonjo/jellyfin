@@ -30,7 +30,7 @@ aptitude install nvidia-opencl-icd
 ```shell
 docker exec jellyfin chmod +x /media/HDRtoSDR_converter.sh
 ```
-- Run it
-- ```shell
+- Run it  
+```shell
 docker exec jellyfin /media/HDRtoSDR_converter.sh
 ```
