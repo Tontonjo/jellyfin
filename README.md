@@ -18,7 +18,7 @@ It will look in $inputpath for HDR content and convert them to x264 SDR to $outp
 - A working GPU decoding setup in jellyfin  
 - Install needed dependencies IN container to have tonemap  
 ```shell
-docker exec -it jellyfin bash
+docker exec -it $jellyfin bash
 ```  
 ```shell
 echo "deb http://deb.debian.org/debian buster-backports main contrib non-free" >> /etc/apt/sources.list  
@@ -32,9 +32,9 @@ aptitude install nvidia-opencl-icd
 - Edit path to match your needs and environement
 - Make it executable 
 ```shell
-docker exec jellyfin chmod +x /media/HDRtoSDR_converter.sh
+docker exec $jellyfin chmod +x /media/HDRtoSDR_converter.sh
 ```
 - Run it  
 ```shell
-docker exec --user root:users jellyfin /media/HDRtoSDR_converter.sh
+docker exec --user root:users $jellyfin /media/HDRtoSDR_converter.sh
 ```
