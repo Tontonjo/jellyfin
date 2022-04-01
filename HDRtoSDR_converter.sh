@@ -27,7 +27,7 @@
 
 # ------------- Settings -------------------------
 inputpath=/media/films
-outputpath=/media/unmatic
+outputpath=/media/output
 crf=17
 preset=slow
 tune=film
