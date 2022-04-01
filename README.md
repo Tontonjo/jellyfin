@@ -26,12 +26,7 @@ apt-get update
 apt-get install aptitude
 aptitude install nvidia-opencl-icd
 ```
-```shell
-echo "deb http://deb.debian.org/debian buster-backports main contrib non-free" >> /etc/apt/sources.list  
-apt-get update  
-apt-get install aptitude
-aptitude install nvidia-opencl-icd
-```
+
 ### Usage:
 - Put script in a jellyfin container accessible folder
 - Edit path to match your needs and environement
