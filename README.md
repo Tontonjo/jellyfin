@@ -39,3 +39,6 @@ docker exec $jellyfin chmod +x /media/HDRtoSDR_converter.sh
 ```shell
 docker exec --user root:users $jellyfin /media/HDRtoSDR_converter.sh
 ```
+
+### Known problems:  
+- When cancelling process, worker still continue in container - help and infos welcome!
