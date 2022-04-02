@@ -28,6 +28,7 @@ aptitude install nvidia-opencl-icd
 
 ### Usage:  
 It will look in $inputpath for HDR content and convert them to x264 SDR to $outputpath  
+Executing the script like this works but is not perfect - suggestions welcome!
 
 - Put script in a jellyfin container accessible folder
 - Edit path to match your needs and environement
