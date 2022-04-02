@@ -25,6 +25,11 @@
 # https://video.stackexchange.com/questions/22059/how-to-identify-hdr-video
 # https://github.com/jellyfin/jellyfin/pull/3442#issuecomment-700368424
 
+# The base of this script was written and tester live on twitch - twitch.com/tonton_jo
+
+# Version:
+# 1.0 - Lots of imprvements after initial twitch version
+
 # ------------- Settings -------------------------
 inputpath=/media/films
 outputpath=/media/output
@@ -41,7 +46,8 @@ OIFS="$IFS"
 IFS=$'\n'
 # ---------------- ENV VARIABLE -----------------------
 
-echo "- Starting conversion of .mkv in $inputpath" > $outputpath/conversionlog.txt
+echo "----- Tonton Jo - 2022 -----" > $outputpath/conversionlog.txt
+echo "- Starting conversion of .mkv in $inputpath" >> $outputpath/conversionlog.txt
 for mkv in `find $inputpath | grep .mkv`
 do
 file=$(basename "$mkv")
