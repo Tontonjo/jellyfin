@@ -49,6 +49,8 @@ IFS=$'\n'
 
 echo "----- Tonton Jo - 2022 -----" > $outputpath/conversionlog.txt
 echo "- Starting conversion of .mkv in $inputpath" >> $outputpath/conversionlog.txt
+if [ $# -eq 0 ]; then
+	echo "- No specific video specified - recusing in $inputpath"
 	for mkv in `find $inputpath | grep .mkv`
 	do
 	file=$(basename "$mkv")
@@ -76,4 +78,16 @@ echo "- Starting conversion of .mkv in $inputpath" >> $outputpath/conversionlog.
 	fi
 
 	done
+else
+		mkv=$@
+		file=$(basename "$mkv")
+		filename=${file::-4}
+		echo "- Processing $mkv" >> $outputpath/conversionlog.txt
+		echo "- Processing $mkv"
+		$ffmpeg -c:v hevc_cuvid -init_hw_device opencl=ocl:0.0 -filter_hw_device ocl -i "$mkv" -threads 1 -map 0:0 -codec:v:0 libx264 -pix_fmt yuv420p -preset $preset -tune $tune -crf $crf -maxrate $maxrate -bufsize 40059976 -profile:v:0 high -level 41 -x264opts:0 subme=0:me_range=4:rc_lookahead=10:me=dia:no_chroma_me:8x8dct=0:partitions=none  -force_key_frames:0 "expr:gte(t,0+n_forced*3)" -vf "hwupload,tonemap_opencl=format=nv12:primaries=bt709:transfer=bt709:matrix=bt709:tonemap=hable:desat=0:threshold=0.8:peak=100,hwdownload,format=nv12"  -avoid_negative_ts disabled -max_muxing_queue_size 9999 -c:a copy -map 0:a -c:s copy -map 0:s -movflags -use_metadata_tags  -metadata title="$filename - HDR tonemaped by youtube.com/tontonjo" "$outputpath/$filename - HDR.mkv"
+		exitcode=$?
+		if [ $exitcode -ne 0 ]; then
+		echo "- Error processing $mkv" >> $outputpath/conversionlog.txt			
+		fi
+fi
 IFS="$OIFS"
