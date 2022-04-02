@@ -25,7 +25,7 @@
 # https://video.stackexchange.com/questions/22059/how-to-identify-hdr-video
 # https://github.com/jellyfin/jellyfin/pull/3442#issuecomment-700368424
 
-# The base of this script was written and tester live on twitch - twitch.com/tonton_jo
+# The base of this script was written and tested live on twitch - twitch.com/tonton_jo
 
 # Version:
 # 1.0 - Lots of imprvements after initial twitch version
