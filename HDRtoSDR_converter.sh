@@ -34,7 +34,7 @@
 inputpath=/media/films
 outputpath=/media/output
 crf=17
-preset=slow
+preset=slower
 tune=film
 maxrate=20029988 # Value in bits/s
 # ---------- END OF SETTINGS ---------------------
