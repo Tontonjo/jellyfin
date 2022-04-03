@@ -31,14 +31,24 @@ It will look in $inputpath for HDR content and convert them to x264 SDR to $outp
 Executing the script like this works but is not perfect - suggestions welcome!
 
 - Put script in a jellyfin container accessible folder
-- Edit path to match your needs and environement
+- Edit the configuration in the script - for more informations about settings: https://trac.ffmpeg.org/wiki/Encode/H.264
+- - Input path - script will recurse if there are subfolders
+- - Outputpath - Where to put converter files - set another path than input
+- - CRF - The range of the CRF scale is 0–51, where 0 is lossless
+- - Tune - film,animation,grain,stillimage,fastdecode,zerolatency 
+- - MaxRate - target bitrate in bps
 - Make it executable 
 ```shell
 docker exec $jellyfin chmod +x /media/HDRtoSDR_converter.sh
 ```
-- Run it  
+- Run it
+- - for all movies in $inputpath
 ```shell
 docker exec --user root:users $jellyfin /media/HDRtoSDR_converter.sh
+```
+- - Run it for a single movie 
+```shell
+docker exec --user root:users $jellyfin /media/HDRtoSDR_converter.sh /path/to/movie.mkv
 ```
 
 ### Known problems:  
