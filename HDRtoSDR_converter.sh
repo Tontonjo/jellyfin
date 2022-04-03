@@ -30,13 +30,20 @@
 # Version:
 # 1.0 - Lots of imprvements after initial twitch version
 
+- Edit the configuration in the script - for more informations about settings: https://trac.ffmpeg.org/wiki/Encode/H.264
+- - Input path - script will recurse if there are subfolders
+- - Outputpath - Where to put converter files - set another path than input
+- - CRF - The range of the CRF scale is 0–51, where 0 is lossless
+- - Tune - film,animation,grain,stillimage,fastdecode,zerolatency 
+- - MaxRate - target bitrate in bps
+- Make it executable 
 # ------------- Settings -------------------------
 inputpath=/media/films
 outputpath=/media/output
-crf=17
-preset=slower
-tune=film
-maxrate=20029988 # Value in bits/s
+crf=17 # The range of the CRF scale is 0–51, where 0 is lossless
+preset=slower # Use the slowest preset that you have patience for: ultrafast,superfastveryfast,faster,fast,medium,slow,slower,veryslow,placebo
+tune=film  # film,animation,grain,stillimage,fastdecode,zerolatency
+maxrate=20029988 # Target bitrate in bps
 # ---------- END OF SETTINGS ---------------------
 
 # ---------------- ENV VARIABLE -----------------------
