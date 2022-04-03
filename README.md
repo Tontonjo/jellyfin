@@ -40,16 +40,20 @@ Executing the script like this works but is not perfect - suggestions welcome!
 - - MaxRate - target bitrate in bps
 - Make it executable 
 ```shell
-docker exec $jellyfin chmod +x /media/HDRtoSDR_converter.sh
+docker exec $jellyfin chmod +x /path/to/HDRtoSDR_converter.sh
 ```
 - Run it
-- - for all movies in $inputpath
+- - Connect into container
 ```shell
-docker exec --user root:users $jellyfin /media/HDRtoSDR_converter.sh
+docker exec -it $jellyfin bash
+```
+- - Run for every movie in $inputpath
+```shell
+bash /path/to/HDRtoSDR_converter.sh
 ```
 - - Run it for a single movie 
 ```shell
-docker exec --user root:users $jellyfin /media/HDRtoSDR_converter.sh /path/to/movie.mkv
+bash /path/to/HDRtoSDR_converter.sh /path/to/movie.mkv
 ```
 
 ### Known problems:  
