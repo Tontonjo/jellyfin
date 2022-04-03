@@ -36,7 +36,9 @@ outputpath=/media/output
 crf=17 # The range of the CRF scale is 0–51, where 0 is lossless
 preset=slower # Use the slowest preset that you have patience for: ultrafast,superfastveryfast,faster,fast,medium,slow,slower,veryslow,placebo
 tune=film  # film,animation,grain,stillimage,fastdecode,zerolatency
-maxrate=20029988 # Target bitrate in bps
+bitrate=10014994 # Target bitrate in bps
+maxrate=10014994 # Target bitrate in bps
+bufsize=10014994
 # ---------- END OF SETTINGS ---------------------
 
 # ---------------- ENV VARIABLE -----------------------
@@ -70,7 +72,7 @@ if [ $# -eq 0 ]; then
 		echo "- - Found HDR file $mkv"
 			echo "- - Found HDR file $mkv" >> $outputpath/conversionlog.txt
 			filename=${file::-4}
-			$ffmpeg -c:v hevc_cuvid -init_hw_device opencl=ocl:0.0 -filter_hw_device ocl -i "$mkv" -threads 1 -map 0:0 -codec:v:0 libx264 -pix_fmt yuv420p -preset $preset -tune $tune -crf $crf -maxrate $maxrate -bufsize 40059976 -profile:v:0 high -level 41 -x264opts:0 subme=0:me_range=4:rc_lookahead=10:me=dia:no_chroma_me:8x8dct=0:partitions=none  -force_key_frames:0 "expr:gte(t,0+n_forced*3)" -vf "hwupload,tonemap_opencl=format=nv12:primaries=bt709:transfer=bt709:matrix=bt709:tonemap=hable:desat=0:threshold=0.8:peak=100,hwdownload,format=nv12"  -avoid_negative_ts disabled -max_muxing_queue_size 9999 -c:a copy -map 0:a -c:s copy -map 0:s -movflags -use_metadata_tags  -metadata title="$filename - HDR tonemaped by youtube.com/tontonjo" "$outputpath/$filename - HDR.mkv"
+			$ffmpeg -c:v hevc_cuvid -init_hw_device opencl=ocl:0.0 -filter_hw_device ocl -i "$mkv" -threads 1 -map 0:0 -codec:v:0 libx264 -pix_fmt yuv420p -preset $preset -tune $tune -crf $crf -b:v $bitrate -maxrate $maxrate -bufsize $bufsize -profile:v:0 high -level 41 -x264opts:0 subme=0:me_range=4:rc_lookahead=10:me=dia:no_chroma_me:8x8dct=0:partitions=none  -force_key_frames:0 "expr:gte(t,0+n_forced*3)" -vf "hwupload,tonemap_opencl=format=nv12:primaries=bt709:transfer=bt709:matrix=bt709:tonemap=hable:desat=0:threshold=0.8:peak=100,hwdownload,format=nv12"  -avoid_negative_ts disabled -max_muxing_queue_size 9999 -c:a copy -map 0:a -c:s copy -map 0:s -movflags -use_metadata_tags  -metadata title="$filename - HDR tonemaped by youtube.com/tontonjo" "$outputpath/$filename - HDR.mkv"
 			exitcode=$?
 				if [ $exitcode -ne 0 ]; then
 					echo "- Error processing $mkv" >> $outputpath/conversionlog.txt
@@ -84,7 +86,7 @@ else
 		filename=${file::-4}
 		echo "- Processing $mkv" >> $outputpath/conversionlog.txt
 		echo "- Processing $mkv"
-		$ffmpeg -c:v hevc_cuvid -init_hw_device opencl=ocl:0.0 -filter_hw_device ocl -i "$mkv" -threads 1 -map 0:0 -codec:v:0 libx264 -pix_fmt yuv420p -preset $preset -tune $tune -crf $crf -maxrate $maxrate -bufsize 40059976 -profile:v:0 high -level 41 -x264opts:0 subme=0:me_range=4:rc_lookahead=10:me=dia:no_chroma_me:8x8dct=0:partitions=none  -force_key_frames:0 "expr:gte(t,0+n_forced*3)" -vf "hwupload,tonemap_opencl=format=nv12:primaries=bt709:transfer=bt709:matrix=bt709:tonemap=hable:desat=0:threshold=0.8:peak=100,hwdownload,format=nv12"  -avoid_negative_ts disabled -max_muxing_queue_size 9999 -c:a copy -map 0:a -c:s copy -map 0:s -movflags -use_metadata_tags  -metadata title="$filename - HDR tonemaped by youtube.com/tontonjo" "$outputpath/$filename - HDR.mkv"
+		$ffmpeg -c:v hevc_cuvid -init_hw_device opencl=ocl:0.0 -filter_hw_device ocl -i "$mkv" -threads 1 -map 0:0 -codec:v:0 libx264 -pix_fmt yuv420p -preset $preset -tune $tune -crf $crf -b:v $bitrate -maxrate $maxrate -bufsize $bufsize -profile:v:0 high -level 41 -x264opts:0 subme=0:me_range=4:rc_lookahead=10:me=dia:no_chroma_me:8x8dct=0:partitions=none  -force_key_frames:0 "expr:gte(t,0+n_forced*3)" -vf "hwupload,tonemap_opencl=format=nv12:primaries=bt709:transfer=bt709:matrix=bt709:tonemap=hable:desat=0:threshold=0.8:peak=100,hwdownload,format=nv12"  -avoid_negative_ts disabled -max_muxing_queue_size 9999 -c:a copy -map 0:a -c:s copy -map 0:s -movflags -use_metadata_tags  -metadata title="$filename - HDR tonemaped by youtube.com/tontonjo" "$outputpath/$filename - HDR.mkv"
 		exitcode=$?
 		if [ $exitcode -ne 0 ]; then
 		echo "- Error processing $mkv" >> $outputpath/conversionlog.txt			
