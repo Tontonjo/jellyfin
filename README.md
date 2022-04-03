@@ -35,6 +35,7 @@ Executing the script like this works but is not perfect - suggestions welcome!
 - - Input path - script will recurse if there are subfolders
 - - Outputpath - Where to put converter files - set another path than input
 - - CRF - The range of the CRF scale is 0–51, where 0 is lossless
+- - Preset - Use the slowest preset that you have patience for: ultrafast,superfastveryfast,faster,fast,medium,slow,slower,veryslow,placebo
 - - Tune - film,animation,grain,stillimage,fastdecode,zerolatency 
 - - MaxRate - target bitrate in bps
 - Make it executable 
