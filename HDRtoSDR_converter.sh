@@ -16,7 +16,7 @@
 
 # Usage:
 # Put script in a jellyfin container accessible folder
-# Edit path to match your needs and environement
+# Edit the configuration in the script - for more informations about settings: https://trac.ffmpeg.org/wiki/Encode/H.264
 # make it executable "docker exec jellyfin chmod +x /media/HDRtoSDR_converter.sh"
 # run it executable "docker exec jellyfin /media/HDRtoSDR_converter.sh"
 
@@ -30,13 +30,6 @@
 # Version:
 # 1.0 - Lots of imprvements after initial twitch version
 
-- Edit the configuration in the script - for more informations about settings: https://trac.ffmpeg.org/wiki/Encode/H.264
-- - Input path - script will recurse if there are subfolders
-- - Outputpath - Where to put converter files - set another path than input
-- - CRF - The range of the CRF scale is 0–51, where 0 is lossless
-- - Tune - film,animation,grain,stillimage,fastdecode,zerolatency 
-- - MaxRate - target bitrate in bps
-- Make it executable 
 # ------------- Settings -------------------------
 inputpath=/media/films
 outputpath=/media/output
