@@ -21,6 +21,8 @@
 # run it executable "docker exec jellyfin /media/HDRtoSDR_converter.sh"
 
 # Sources: 
+# HDR tonemap: all credits to Jellyfin https://github.com/jellyfin/jellyfin
+# https://trac.ffmpeg.org/wiki/Limiting%20the%20output%20bitrate
 # https://unix.stackexchange.com/questions/9496/looping-through-files-with-spaces-in-the-names
 # https://video.stackexchange.com/questions/22059/how-to-identify-hdr-video
 # https://github.com/jellyfin/jellyfin/pull/3442#issuecomment-700368424
@@ -36,8 +38,8 @@ outputpath=/media/output
 crf=17 # The range of the CRF scale is 0–51, where 0 is lossless
 preset=slower # Use the slowest preset that you have patience for: ultrafast,superfastveryfast,faster,fast,medium,slow,slower,veryslow,placebo
 tune=film  # film,animation,grain,stillimage,fastdecode,zerolatency
-bitrate=10014994 # Target bitrate in bps
-maxrate=10014994 # Target bitrate in bps
+bitrate=10014994 # The typical example would be something like this: bitrate 10014994 - maxrate 10014994 - bufsize 5007497
+maxrate=10014994
 bufsize=10014994
 # ---------- END OF SETTINGS ---------------------
 
