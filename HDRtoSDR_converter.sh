@@ -38,9 +38,9 @@ outputpath=/media/output
 crf=22 # The range of the CRF scale is 0–51, where 0 is lossless
 preset=slower # Use the slowest preset that you have patience for: ultrafast,superfastveryfast,faster,fast,medium,slow,slower,veryslow,placebo
 tune=film  # film,animation,grain,stillimage,fastdecode,zerolatency
-bitrate=10014994 # The typical example would be something like this: bitrate 10014994 - maxrate 10014994 - bufsize 5007497
-maxrate=15014994
-bufsize=10014994
+bitrate=20029988 # The typical example would be something like this: bitrate 10014994 - maxrate 10014994 - bufsize 5007497
+maxrate=20029988
+bufsize=40059976
 # ---------- END OF SETTINGS ---------------------
 
 # ---------------- ENV VARIABLE -----------------------
