@@ -91,7 +91,7 @@ elif  [[ $1 = "-r" ]]; then
 	do
 	file=$(basename "$mkv")
 	filename=${file::-4}
-	$ffmpeg -i "$mkv" -c:v copy -map 0:v -c:a copy -map 0:a -c:s copy -map 0:s -movflags -use_metadata_tags -metadata title="$filename - HDR tonemap script from youtube.com/tontonjo" "$outputpath/$filename - HDR.mkv"
+	$ffmpeg -i "$mkv" -c:v copy -map 0:v -c:a copy -map 0:a -c:s copy -map 0:s -movflags -use_metadata_tags -metadata title="$filename - HDR tonemap script from youtube.com/tontonjo" "$outputpath/$filename.mkv"
 	done
 else
 		mkv=$@
