@@ -31,6 +31,7 @@
 
 # Version:
 # 1.0 - Lots of imprvements after initial twitch version
+# 2.0 - Add option to rename the title according to the file name (usefull when it contains unwanted infos ^^) - execute in target folder
 
 # ------------- Settings -------------------------
 inputpath=/media/films
@@ -53,6 +54,8 @@ IFS=$'\n'
 
 echo "----- Tonton Jo - 2022 -----" > $outputpath/conversionlog.txt
 echo "- Starting conversion of .mkv in $inputpath" >> $outputpath/conversionlog.txt
+
+# Check if option has been passed, if none, run in default mode and lookd for HDR content in $inputpath
 if [ $# -eq 0 ]; then
 	echo "- No specific video specified - recusing in $inputpath"
 	for mkv in `find $inputpath | grep .mkv`
@@ -81,6 +84,14 @@ if [ $# -eq 0 ]; then
 				fi
 	fi
 
+	done
+# If -r option is set, set the actual file name as Title in movie tag
+elif  [[ $1 = "-r" ]]; then
+	for mkv in `find $inputpath | grep .mkv`
+	do
+	file=$(basename "$mkv")
+	filename=${file::-4}
+	$ffmpeg -i "$mkv" -c:v copy -map 0:v -c:a copy -map 0:a -c:s copy -map 0:s -movflags -use_metadata_tags -metadata title="$filename - HDR tonemap script from youtube.com/tontonjo" "$outputpath/$filename - HDR.mkv"
 	done
 else
 		mkv=$@
