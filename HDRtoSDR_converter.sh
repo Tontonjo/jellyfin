@@ -63,6 +63,7 @@ if [ $# -eq 0 ]; then
 	for mkv in `find $inputpath | grep .mkv`
 	do
 	file=$(basename "$mkv")
+	filename=${file::-4}
 	echo "- Processing $mkv" >> $outputpath/conversionlog.txt
 	echo "- Processing $mkv"
 	if $ffprobe -show_streams $mkv | grep -Ewqi "$unwantedcolormap" ; then
