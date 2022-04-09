@@ -32,6 +32,7 @@
 # Version:
 # 1.0 - Lots of imprvements after initial twitch version
 # 2.0 - Add option to rename the title according to the file name (usefull when it contains unwanted infos ^^) - execute in target folder
+# 2.1 - Simplifiy detection of hdr files
 
 # ------------- Settings -------------------------
 inputpath=/media/films
@@ -47,6 +48,7 @@ bufsize=40059976
 # ---------------- ENV VARIABLE -----------------------
 ffmpeg=/usr/lib/jellyfin-ffmpeg/ffmpeg
 ffprobe=/usr/lib/jellyfin-ffmpeg/ffprobe
+unwantedcolormap="smpte2084|bt2020nc|bt2020"
 # Allow to handle spaces in "for" loop
 OIFS="$IFS"
 IFS=$'\n'
@@ -63,27 +65,13 @@ if [ $# -eq 0 ]; then
 	file=$(basename "$mkv")
 	echo "- Processing $mkv" >> $outputpath/conversionlog.txt
 	echo "- Processing $mkv"
-	COLORS=$($ffprobe -show_streams -v error "$mkv" |egrep "^color_transfer|^color_space=|^color_primaries=" |head -3)
-	for C in $COLORS; do
-		if [[ "$C" = "color_space="* ]]; then
-			COLORSPACE=${C##*=}
-		elif [[ "$C" = "color_transfer="* ]]; then
-			COLORTRANSFER=${C##*=}
-		elif [[ "$C" = "color_primaries="* ]]; then
-			COLORPRIMARIES=${C##*=}
-		fi      
-	done    
-	if [ "${COLORSPACE}" = "bt2020nc" ] && [ "${COLORTRANSFER}" = "smpte2084" ] && [ "${COLORPRIMARIES}" = "bt2020" ]; then 
-		echo "- - Found HDR file $mkv"
-			echo "- - Found HDR file $mkv" >> $outputpath/conversionlog.txt
-			filename=${file::-4}
-			$ffmpeg -c:v hevc_cuvid -init_hw_device opencl=ocl:0.0 -filter_hw_device ocl -i "$mkv" -threads 0 -map 0:0 -codec:v:0 libx264 -pix_fmt yuv420p -preset $preset -tune $tune -crf $crf -b:v $bitrate -maxrate $maxrate -bufsize $bufsize -profile:v:0 high -level 41 -x264opts:0 subme=0:me_range=4:rc_lookahead=10:me=dia:no_chroma_me:8x8dct=0:partitions=none  -force_key_frames:0 "expr:gte(t,0+n_forced*3)" -vf "hwupload,tonemap_opencl=format=nv12:primaries=bt709:transfer=bt709:matrix=bt709:tonemap=hable:desat=0:threshold=0.8:peak=100,hwdownload,format=nv12"  -avoid_negative_ts disabled -max_muxing_queue_size 9999 -c:a copy -map 0:a -c:s copy -map 0:s -movflags -use_metadata_tags -metadata title="$filename - HDR tonemap script from youtube.com/tontonjo" -metadata:s:v:0 title="Tonemaped" "$outputpath/$filename - HDR.mkv"
-			exitcode=$?
-				if [ $exitcode -ne 0 ]; then
-					echo "- Error processing $mkv" >> $outputpath/conversionlog.txt
-				fi
+	if $ffprobe -show_streams $mkv | grep -Ewqi "$unwantedcolormap" ; then
+	$ffmpeg -c:v hevc_cuvid -init_hw_device opencl=ocl:0.0 -filter_hw_device ocl -i "$mkv" -threads 0 -map 0:0 -codec:v:0 libx264 -pix_fmt yuv420p -preset $preset -tune $tune -crf $crf -b:v $bitrate -maxrate $maxrate -bufsize $bufsize -profile:v:0 high -level 41 -x264opts:0 subme=0:me_range=4:rc_lookahead=10:me=dia:no_chroma_me:8x8dct=0:partitions=none  -force_key_frames:0 "expr:gte(t,0+n_forced*3)" -vf "hwupload,tonemap_opencl=format=nv12:primaries=bt709:transfer=bt709:matrix=bt709:tonemap=hable:desat=0:threshold=0.8:peak=100,hwdownload,format=nv12"  -avoid_negative_ts disabled -max_muxing_queue_size 9999 -c:a copy -map 0:a -c:s copy -map 0:s -movflags -use_metadata_tags -metadata title="$filename - HDR tonemap script from youtube.com/tontonjo" -metadata:s:v:0 title="Tonemaped" "$outputpath/$filename - HDR.mkv"
+	exitcode=$?
+		if [ $exitcode -ne 0 ]; then
+			echo "- Error processing $mkv" >> $outputpath/conversionlog.txt
+		fi
 	fi
-
 	done
 # If -r option is set, set the actual file name as Title in movie tag
 elif  [[ $1 = "-r" ]]; then
@@ -97,12 +85,17 @@ else
 		mkv=$@
 		file=$(basename "$mkv")
 		filename=${file::-4}
-		echo "- Processing $mkv" >> $outputpath/conversionlog.txt
+		echo "- Processing $mkv" > $outputpath/conversionlog.txt
 		echo "- Processing $mkv"
+		if $ffprobe -show_streams $mkv | grep -Ewqi "$unwantedcolormap" ; then
 		$ffmpeg -c:v hevc_cuvid -init_hw_device opencl=ocl:0.0 -filter_hw_device ocl -i "$mkv" -threads 0 -map 0:0 -codec:v:0 libx264 -pix_fmt yuv420p -preset $preset -tune $tune -crf $crf -b:v $bitrate -maxrate $maxrate -bufsize $bufsize -profile:v:0 high -level 41 -x264opts:0 subme=0:me_range=4:rc_lookahead=10:me=dia:no_chroma_me:8x8dct=0:partitions=none  -force_key_frames:0 "expr:gte(t,0+n_forced*3)" -vf "hwupload,tonemap_opencl=format=nv12:primaries=bt709:transfer=bt709:matrix=bt709:tonemap=hable:desat=0:threshold=0.8:peak=100,hwdownload,format=nv12"  -avoid_negative_ts disabled -max_muxing_queue_size 9999 -c:a copy -map 0:a -c:s copy -map 0:s -movflags -use_metadata_tags -metadata title="$filename - HDR tonemap script from youtube.com/tontonjo" -metadata:s:v:0 title="Tonemaped" "$outputpath/$filename - HDR.mkv"
 		exitcode=$?
 		if [ $exitcode -ne 0 ]; then
-		echo "- Error processing $mkv" >> $outputpath/conversionlog.txt			
+				echo "- Error processing $mkv" >> $outputpath/conversionlog.txt
 		fi
+		else 
+		echo "- File does not looks to have any HDR colors" && echo "- File does not looks to have any HDR colors" >> $outputpath/conversionlog.txt	
+		fi
+		exitcode=$?
 fi
 IFS="$OIFS"
