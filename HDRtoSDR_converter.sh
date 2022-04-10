@@ -60,7 +60,7 @@ echo "- Starting conversion of .mkv in $inputpath" >> $outputpath/conversionlog.
 # Check if option has been passed, if none, run in default mode and lookd for HDR content in $inputpath
 if [ $# -eq 0 ]; then
 	echo "- No specific video specified - recusing in $inputpath"
-	for mkv in `find $inputpath | grep .mkv`
+	for mkv in `find $inputpath | sort -h | grep .mkv`
 	do
 	file=$(basename "$mkv")
 	filename=${file::-4}
@@ -76,7 +76,7 @@ if [ $# -eq 0 ]; then
 	done
 # If -r option is set, set the actual file name as Title in movie tag
 elif  [[ $1 = "-r" ]]; then
-	for mkv in `find $inputpath | grep .mkv`
+	for mkv in `find $inputpath | sort -h | grep .mkv`
 	do
 	file=$(basename "$mkv")
 	filename=${file::-4}
