@@ -57,3 +57,25 @@ bash /path/to/HDRtoSDR_converter.sh /path/to/movie.mkv
 
 ### Known problems:  
 - When cancelling process, worker still continue in container - help and infos welcome!
+
+## compatibility_checker.sh
+### Want to know what files contains not well supported format by jellyfin? Here you go
+
+
+### Usage:  
+It will look in $inputpath for HDR content and convert them to x264 SDR to $outputpath  
+Executing the script like this works but is not perfect - suggestions welcome!
+
+- Put script in a jellyfin container accessible folder
+- Edit the configuration in the script especially the path
+- - Input path - script will recurse if there are subfolders
+
+- Run it
+- - Connect into container
+```shell
+docker exec -it $jellyfin bash
+```
+- - Run for every movie in $inputpath
+```shell
+bash /path/to/compatibility_checker.sh
+```
