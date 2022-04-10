@@ -17,10 +17,12 @@
 # Version:
 # 1.0 - Initial release
 # 1.1 - Sort alphabetically 
+# 1.2 - Fix some detections
+
 
 # ------------- Settings -------------------------
 inputpath=/media/films
-unwantedsub="pgs|test"
+unwantedsub="pgs"
 unwantedformat="HEVC|265"
 unwantedaudio="dts|ac3"
 unwantedcolormap="smpte2084|bt2020nc|bt2020"
@@ -41,16 +43,16 @@ echo "- Starting Check of .mkv in $inputpath" >> $inputpath/checklog.txt
 	for mkv in `find $inputpath | sort -h | grep .mkv`
 	do
 	ffprobeoutput=$($ffprobe -show_streams $mkv)
-	if echo "$ffprobeoutput" | grep -Ewqi "$unwantedformat" ; then
+	if echo "$ffprobeoutput" | grep -Eqi "$unwantedformat" ; then
 		echo "$mkv - Unwanted format ($unwantedformat)" >> $inputpath/checklog.txt 
-		if $ffprobe -show_streams $mkv | grep -wqi "$unwantedcolormap" ; then
+		if $ffprobe -show_streams $mkv | grep -Eqi "$unwantedcolormap" ; then
 		echo "$mkv - Found HDR colors ($unwantedcolormap)" >> $inputpath/checklog.txt
 		fi
 	fi
-	if echo "$ffprobeoutput" | grep -wqi "$unwantedsub" ; then
+	if echo "$ffprobeoutput" | grep -Eqi "$unwantedsub" ; then
 	echo "$mkv - Unwanted subtitles format found ($unwantedsub)" >> $inputpath/checklog.txt
 	fi
-	if echo "$ffprobeoutput" | grep -wqi "$unwantedaudio" ; then
+	if echo "$ffprobeoutput" | grep -Eqi "$unwantedaudio" ; then
 	echo "$mkv - Unwanted audio format found ($unwantedaudio)" >> $inputpath/checklog.txt
 	fi
 	done
