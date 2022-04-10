@@ -33,6 +33,7 @@
 # 1.0 - Lots of imprvements after initial twitch version
 # 2.0 - Add option to rename the title according to the file name (usefull when it contains unwanted infos ^^) - execute in target folder
 # 2.1 - Simplifiy detection of hdr files
+# 2.2 - Process files alphabetically
 
 # ------------- Settings -------------------------
 inputpath=/media/films
