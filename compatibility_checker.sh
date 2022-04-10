@@ -4,7 +4,7 @@
 # Join me on Youtube: https://www.youtube.com/c/tontonjo
 
 # This scripts aims to check for every unwanted format / codec in .mkv files
-# My goal is to get rid of any uncompatible formats in order to have no transcode needed.
+# My goal is to get rid of any partially uncompatible file in order to have no transcode needed.
 
 # Prerequisits:
 # ffprobe installed - already in jellyfin container
@@ -16,11 +16,12 @@
 
 # Version:
 # 1.0 - Initial release
+# 1.1 - Sort alphabetically 
 
 # ------------- Settings -------------------------
 inputpath=/media/films
 unwantedsub="pgs|test"
-unwantedformat="HEVC"
+unwantedformat="HEVC|265"
 unwantedaudio="dts|ac3"
 unwantedcolormap="smpte2084|bt2020nc|bt2020"
 
@@ -37,19 +38,19 @@ IFS=$'\n'
 echo "----- Tonton Jo - 2022 -----" > $inputpath/checklog.txt
 echo "- Starting Check of .mkv in $inputpath" >> $inputpath/checklog.txt
 
-	for mkv in `find $inputpath | grep .mkv`
+	for mkv in `find $inputpath | sort -h | grep .mkv`
 	do
 	ffprobeoutput=$($ffprobe -show_streams $mkv)
 	if echo "$ffprobeoutput" | grep -Ewqi "$unwantedformat" ; then
 		echo "$mkv - Unwanted format ($unwantedformat)" >> $inputpath/checklog.txt 
-		if $ffprobe -show_streams $mkv | grep -Ewqi "$unwantedcolormap" ; then
+		if $ffprobe -show_streams $mkv | grep -wqi "$unwantedcolormap" ; then
 		echo "$mkv - Found HDR colors ($unwantedcolormap)" >> $inputpath/checklog.txt
 		fi
 	fi
-	if echo "$ffprobeoutput" | grep -Ewqi "$unwantedsub" ; then
+	if echo "$ffprobeoutput" | grep -wqi "$unwantedsub" ; then
 	echo "$mkv - Unwanted subtitles format found ($unwantedsub)" >> $inputpath/checklog.txt
 	fi
-	if echo "$ffprobeoutput" | grep -Ewqi "$unwantedaudio" ; then
+	if echo "$ffprobeoutput" | grep -wqi "$unwantedaudio" ; then
 	echo "$mkv - Unwanted audio format found ($unwantedaudio)" >> $inputpath/checklog.txt
 	fi
 	done
