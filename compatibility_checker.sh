@@ -17,8 +17,7 @@
 # Version:
 # 1.0 - Initial release
 # 1.1 - Sort alphabetically 
-# 1.2 - Fix some detections
-
+# 1.2 - correction to use ffmpeg echo and ensure grep is for codecs
 
 # ------------- Settings -------------------------
 inputpath=/media/films
@@ -43,16 +42,16 @@ echo "- Starting Check of .mkv in $inputpath" >> $inputpath/checklog.txt
 	for mkv in `find $inputpath | sort -h | grep .mkv`
 	do
 	ffprobeoutput=$($ffprobe -show_streams $mkv)
-	if echo "$ffprobeoutput" | grep -Eqi "$unwantedformat" ; then
+	if echo "$ffprobeoutput" | grep codec | grep -Eqi "$unwantedformat" ; then
 		echo "$mkv - Unwanted format ($unwantedformat)" >> $inputpath/checklog.txt 
-		if $ffprobe -show_streams $mkv | grep -Eqi "$unwantedcolormap" ; then
+		if echo "$ffprobeoutput" | grep -Eqi "$unwantedcolormap" ; then
 		echo "$mkv - Found HDR colors ($unwantedcolormap)" >> $inputpath/checklog.txt
 		fi
 	fi
-	if echo "$ffprobeoutput" | grep -Eqi "$unwantedsub" ; then
+	if echo "$ffprobeoutput" | grep codec | grep -Eqi "$unwantedsub" ; then
 	echo "$mkv - Unwanted subtitles format found ($unwantedsub)" >> $inputpath/checklog.txt
 	fi
-	if echo "$ffprobeoutput" | grep -Eqi "$unwantedaudio" ; then
+	if echo "$ffprobeoutput" | grep codec | grep -Eqi "$unwantedaudio" ; then
 	echo "$mkv - Unwanted audio format found ($unwantedaudio)" >> $inputpath/checklog.txt
 	fi
 	done
