@@ -42,8 +42,8 @@
 # 3.0 - Too many changes sorry - now can transcode audio dts-ac3 to aac 5.1
 
 # ------------- Settings -------------------------
-inputpath=/media/unmanic/converter
-outputpath=/media/unmanic
+inputpath=/media/input
+outputpath=/media/output
 unwantedcolormap="smpte2084|bt2020nc|bt2020"
 preset=slower 					# Use the slowest preset that you have patience for: ultrafast,superfastveryfast,faster,fast,medium,slow,slower,veryslow,placebo
 tune=film  					# film,animation,grain,stillimage,fastdecode,zerolatency
