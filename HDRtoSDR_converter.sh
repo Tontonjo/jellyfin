@@ -135,16 +135,16 @@ elif  [[ $1 = "-all" ]]; then
 				echo "- File size is smaller than set size use CRF $crf_smallfile" >> $outputpath/conversionlog.txt
 				crf=$crf_smallfile
 			fi
-	if $ffprobe -show_streams $mkv | grep -Eqi "$unwantedcolormap" ; then
-		if echo "$ffprobeoutput" | grep codec | grep -Eqi "$unwantedaudio" ; then
-			echo "- Processing video + audio" >> $outputpath/conversionlog.txt
-			if echo "$ffprobeoutput" | grep color_primaries=bt2020; then
+	if echo "$ffprobeoutput" | grep -Eqi "$unwantedcolormap" ; then
+		if echo "$ffprobeoutput" | grep color_primaries=bt2020; then
 				echo "- Video is using bt2020 colormap" >> $outputpath/conversionlog.txt
 				colorprimaries=bt2020
-			else
+		else
 				echo "- Video is using bt709 colormap" >> $outputpath/conversionlog.txt
 				colorprimaries=bt709
-			fi
+		fi
+		if echo "$ffprobeoutput" | grep codec | grep -Eqi "$unwantedaudio" ; then
+			echo "- Processing video + audio" >> $outputpath/conversionlog.txt
 			$ffmpeg -c:v hevc_cuvid -init_hw_device opencl=ocl:0.0 -filter_hw_device ocl -i "$mkv" -y -threads 0 -map 0:0 -codec:v:0 libx264 -pix_fmt yuv420p -preset $preset -tune $tune -crf $crf -aq-mode $aqmode -b:v $bitrate -maxrate $maxrate -bufsize $bufsize -profile:v:0 high -level 51 -x264opts:0 subme=$subme:me_range=$merange:rc_lookahead=10:me=dia:no_chroma_me:8x8dct=0:partitions=none  -force_key_frames:0 "expr:gte(t,0+n_forced*2)" -vf "hwupload,tonemap_opencl=format=nv12:primaries=$colorprimaries:transfer=$colorprimaries:matrix=$colorprimaries:tonemap=hable:desat=$desat:threshold=$threshold:peak=$peak,hwdownload,format=nv12" -avoid_negative_ts disabled -max_muxing_queue_size 9999 -c:a $targetaudioformat -ac 6 -ab $audiobitrate -map 0:a -c:s copy -map 0:s -movflags -use_metadata_tags -metadata title="$filename - HDR tonemap script from youtube.com/tontonjo" -metadata:s:v:0 title="Tonemaped" "$outputpath/$filename.mkv"
 		else
 				echo "- Processing video only" >> $outputpath/conversionlog.txt
