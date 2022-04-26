@@ -43,8 +43,8 @@
 # 4.0 - Too many changes sorry again
 
 # ------------- Settings -------------------------
-inputpath=/media/unmanic/converter
-outputpath=/media/unmanic
+inputpath=/media/converter
+outputpath=/media/output
 unwantedcolormap="smpte2084|bt2020nc|bt2020"
 unwanted264format="10"
 unwanted265format="HEVC"
