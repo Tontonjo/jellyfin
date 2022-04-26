@@ -18,11 +18,13 @@
 # 1.0 - Initial release
 # 1.1 - Sort alphabetically 
 # 1.2 - correction to use ffmpeg echo and ensure grep is for codecs
+# 2.0 - some improvements
 
 # ------------- Settings -------------------------
 inputpath=/media/films
-unwantedsub="pgs|test"
-unwanted265format="HEVC|265"
+unwantedsub="pgs"
+forcedsub="forces|foreced"
+unwanted265format="HEVC"
 unwanted264format="10"
 unwantedaudio="dts|ac3"
 unwantedcolormap="smpte2084|bt2020nc|bt2020"
@@ -42,12 +44,12 @@ echo "- Starting Check of .mkv in $inputpath" >> $inputpath/checklog.txt
 
 	for mkv in `find $inputpath | sort -h | grep .mkv`
 	do
+	echo "------------ $mkv ----------------" >> $inputpath/checklog.txt
 	ffprobeoutput=$($ffprobe -show_streams $mkv)
-	if echo "$ffprobeoutput" | grep codec | grep -Eqi "$unwanted265format" ; then
+	if echo "$ffprobeoutput" | grep codec_name | grep -qi "$unwanted265format" ; then
 		echo "$mkv - Unwanted format ($unwanted265format)" >> $inputpath/checklog.txt 
 		if echo "$ffprobeoutput" | grep -Eqi "$unwantedcolormap" ; then
 		echo "$mkv - Found HDR colors ($unwantedcolormap)" >> $inputpath/checklog.txt
-
 		fi
 	elif echo "$ffprobeoutput" | grep profile | grep -Eqi "$unwanted264format" ; then
 			echo "$mkv - Unwanted format ($unwanted264format)" >> $inputpath/checklog.txt 
@@ -57,6 +59,9 @@ echo "- Starting Check of .mkv in $inputpath" >> $inputpath/checklog.txt
 	else
 	if echo "$ffprobeoutput" | grep codec | grep -Eqi "$unwantedsub" ; then
 	echo "$mkv - Unwanted subtitles format found ($unwantedsub)" >> $inputpath/checklog.txt
+		if echo "$ffprobeoutput" | grep -qi tag | grep -qi "$forcedsub" ; then
+			echo "$mkv - Forced subtitles found ($forcedsub)" >> $inputpath/checklog.txt
+		fi
 	fi
 	fi
 	if echo "$ffprobeoutput" | grep codec | grep -Eqi "$unwantedaudio" ; then
