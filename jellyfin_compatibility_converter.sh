@@ -20,10 +20,12 @@
 # make it executable "docker exec jellyfin chmod +x /media/HDRtoSDR_converter.sh"
 # run it executable "docker exec jellyfin /media/HDRtoSDR_converter.sh"
 # arguments:
-# none: automatically convert video and / or audio in the most supported format
-# -smooth: upgrade video to 60FPS
-# -video: Convert video only
-# -audio: Convert audion only
+# none: automatically process video: hdr and vidéo + audio if needed
+# -all: process vidéo + audio if needed
+# -video: Only convert video
+# -audio: only convert audion to specified format
+# -r: rename video track with the filename
+# -smooth: upgrade vidéo to 60 FPS using tblend
 
 # Sources: 
 # HDR tonemap: all credits to Jellyfin https://github.com/jellyfin/jellyfin
@@ -43,7 +45,7 @@
 # 4.0 - Too many changes sorry again
 
 # ------------- Settings -------------------------
-inputpath=/media/converter
+inputpath=/media/films
 outputpath=/media/output
 unwantedcolormap="smpte2084|bt2020nc|bt2020"
 unwanted264format="10"
@@ -55,12 +57,12 @@ me_range=20 					# MErange controls the max range of the motion search - default
 aqmode=3
 keyframes=1
 # ------------ CRF Mode -----------------
-bitrate=20029988				# typical values: bitrate 10014994 - maxrate 10014994 - bufsize 5007497
-maxrate=20029988 
+bitrate=30044982				# typical values: bitrate 10014994 - maxrate 10014994 - bufsize 5007497
+maxrate=30044982 
 bufsize=40059976
-setsize=15000000000 				# File bigger will use crf_bigfile and smaller crf_smallfile
+setsize=60089964 				# File bigger will use crf_bigfile and smaller crf_smallfile
 crf_bigfile=20					# The range of the CRF scale is 0–51, where 0 is lossless
-crf_smallfile=17				# The range of the CRF scale is 0–51, where 0 is lossless
+crf_smallfile=20				# The range of the CRF scale is 0–51, where 0 is lossless
 #------------------- HDR Settings -------------------
 threshold=0.8 					# threshold is used to detect whether the scene has changed or not
 peak=100 					# Override signal/nominal/reference peak with this value
@@ -99,7 +101,10 @@ audioonly() {
 $ffmpeg -i "$mkv" -y -c:v copy -map 0:v -c:a $targetaudioformat -ac 6 -ab $audiobitrate -map 0:a -c:s copy -map 0:s? "$outputpath/$filename.mkv"
 }
 smooth() {
-$ffmpeg -i "$mkv" -y -threads 0 -c:a copy -map 0:a -c:s copy -map 0:s? -filter:v "tblend" -r 60 "$outputpath/$filename.mkv"
+$ffmpeg -i "$mkv" -y -threads 0 -map 0:v -filter:v "tblend" -r 60 -c:a copy -map 0:a -c:s copy -map 0:s? "$outputpath/$filename.mkv"
+}
+rename() {
+$ffmpeg -i "$mkv" -c:v copy -map 0:v -c:a copy -map 0:a -c:s copy -map 0:s -movflags -use_metadata_tags -metadata title="$filename" "$outputpath/$filename - HDR.mkv"
 }
 crfcheck() {
 			echo "- Determining CRF to use" >> $outputpath/conversionlog.txt
@@ -118,7 +123,7 @@ echo "- Starting conversion of .mkv in $inputpath" >> $outputpath/conversionlog.
 
 
 # Check if option has been passed, if none, run in default mode and lookd for HDR content in $inputpath - if fail, fallback to non-tonemaped encoder or check if h264 10 bits
-for mkv in `find $inputpath | grep .mkv`; do
+for mkv in `find $inputpath | grep .mkv | sort -h`; do
 	echo "Processing $mkv" >> $outputpath/conversionlog.txt
 	filesize=$(ls -l "$mkv" | awk '{print $5}')
 	file=$(basename "$mkv")
@@ -136,6 +141,10 @@ for mkv in `find $inputpath | grep .mkv`; do
 		# Transcode Video only
 		echo "- Converting Video to h264 8 bits" >> $outputpath/conversionlog.txt
 		otherformat
+	elif  [[ $1 = "-rename" ]]; then 
+		# Rename video track
+		echo "- Renaming video track with $filename" >> $outputpath/conversionlog.txt
+		rename
 	# If no option set - entering auto mode: check HDR: if fail try to normal transcode - if audio is equal to $unwantedaudio - transcode audion aswell
 	elif echo "$ffprobeoutput" | grep -Eqi "$unwantedcolormap" ; then
 		if echo "$ffprobeoutput" | grep color_primaries=bt2020; then
@@ -167,13 +176,18 @@ for mkv in `find $inputpath | grep .mkv`; do
 				otherformat
 			fi
 		fi
-		elif  echo "$ffprobeoutput" | grep codec_name | grep -qi "$unwanted265format" ; then
+	elif  echo "$ffprobeoutput" | grep codec_name | grep -qi "$unwanted265format" ; then
 		echo "- File is H265 " >> $outputpath/conversionlog.txt
 		crfcheck
 		if echo "$ffprobeoutput" | grep codec | grep -Eqi "$unwantedaudio" ; then
 			echo "- Processing video + audio" >> $outputpath/conversionlog.txt
 			# Run ffmpeg command otherformataudio
 			otherformataudio
+		else
+				echo "- Processing video only" >> $outputpath/conversionlog.txt
+			# Run ffmpeg command otherformataudio
+			otherformat
+		fi
 	# Check if profile is 10 bits - placed after HEVC detection to better know if it matches HEVC or H264 10 bits as HEVC 10 bits would match this.
 	elif  echo "$ffprobeoutput" | grep profile | grep -Eqi "$unwanted264format" ; then
 		echo "- File is H264 10 bits" >> $outputpath/conversionlog.txt
@@ -182,11 +196,6 @@ for mkv in `find $inputpath | grep .mkv`; do
 			echo "- Processing video + audio" >> $outputpath/conversionlog.txt
 			# Run ffmpeg command otherformataudio
 			otherformataudio		
-		else
-				echo "- Processing video only" >> $outputpath/conversionlog.txt
-			# Run ffmpeg command otherformataudio
-			otherformat
-		fi
 		else
 				echo "- Processing video only" >> $outputpath/conversionlog.txt
 			# Run ffmpeg command otherformataudio
