@@ -157,7 +157,7 @@ echo "- Starting conversion of .mkv in $inputpath" >> $inputpath/conversionlog.t
 
 
 # Check if option has been passed, if none, run in default mode and lookd for HDR content in $inputpath - if fail, fallback to non-tonemaped encoder or check if h264 10 bits
-for mkv in `find $inputpath | grep .mkv | sort -h | head -90`; do
+for mkv in `find $inputpath | grep .mkv | sort -h`; do
 	echo "Processing $mkv" >> $inputpath/conversionlog.txt
 	filesize=$(ls -l "$mkv" | awk '{print $5}')
 	file=$(basename "$mkv")
