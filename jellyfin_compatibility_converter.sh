@@ -44,6 +44,7 @@
 # 3.0 - Too many changes sorry - now can transcode audio dts-ac3 to aac 5.1
 # 4.0 - Too many changes sorry again
 # 5.0 - add option to leave empty outputpath in order to everwrite the original file when task was successfully done
+# 5.1 - fix outputpath
 
 # ------------- Settings -------------------------
 inputpath="/media/input"
@@ -123,6 +124,8 @@ then
 			echo "- Convertion ended successfully - overwriting existing file" >> $inputpath/conversionlog.txt
 			mv -f "$outputpath/$file.tmp" "$outputpath/$file"
 		fi
+	# unset outputpath in order to redifine $outputpath for every file
+	unset outputpath
 	  
 else
 	echo "- Outputpath specified - file will not be overwritten" >> $inputpath/conversionlog.txt
