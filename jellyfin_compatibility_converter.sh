@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Tonton Jo - 2021
+# Tonton Jo - 2022
 # Join me on Youtube: https://www.youtube.com/c/tontonjo
 
 # This scripts aim to convert H265 HDR content to H264 SDR while trying to keep HDR colors using Tonemap
@@ -44,11 +44,12 @@
 # 3.0 - Too many changes sorry - now can transcode audio dts-ac3 to aac 5.1
 # 4.0 - Too many changes sorry again
 # 5.0 - add option to leave empty outputpath in order to everwrite the original file when task was successfully done
-# 5.1 - fix outputpath
+# 5.1 - echo filesize in human rdbl format
+# 5.2 - Fix the video stream mapping in case it's not the first one
 
 # ------------- Settings -------------------------
-inputpath="/media/input"
-outputpath="/media/output" # Leave this empty to overwrite the original file when transcode was sucessfull
+inputpath="/media/films"
+outputpath=""  # Leave this empty to overwrite the original file when transcode is sucessfull
 unwantedcolormap="smpte2084|bt2020nc|bt2020"
 unwanted264format="10"
 unwanted265format="HEVC"
@@ -70,9 +71,9 @@ threshold=0.8 					# threshold is used to detect whether the scene has changed o
 peak=100 					# Override signal/nominal/reference peak with this value
 desat=2.0 					# Apply desaturation for highlights that exceed this level of brightness - default of 2.0 - Jelly = 0
 # --------------- Audio Settings -------------------
-unwantedaudio="dts|ac3"
+unwantedaudio="dts|ac3|opus"
 targetaudioformat="aac"
-audiobitrate=640000
+audiobitrate=320000
 # ---------- END OF SETTINGS ---------------------
 
 # ---------------- ENV VARIABLE -----------------------
@@ -85,19 +86,19 @@ IFS=$'\n'
 
 # Convert H265 HDR to X264 with tonemap
 hdr() {
-$ffmpeg -c:v hevc_cuvid -init_hw_device opencl=ocl:0.0 -filter_hw_device ocl -i "$mkv" -y -threads 0 -map 0:0 -codec:v:0 libx264 -pix_fmt yuv420p -preset $preset -tune $tune -crf $crf -aq-mode $aqmode -b:v $bitrate -maxrate $maxrate -bufsize $bufsize -profile:v:0 high -level 51 -x264opts:0 subme=$subme:me_range=$merange:rc_lookahead=10:me=dia:no_chroma_me:8x8dct=0:partitions=none  -force_key_frames:0 "expr:gte(t,0+n_forced*$keyframes)" -vf "hwupload,tonemap_opencl=format=nv12:primaries=$colorprimaries:transfer=$colorprimaries:matrix=$colorprimaries:tonemap=hable:desat=$desat:threshold=$threshold:peak=$peak,hwdownload,format=nv12"  -avoid_negative_ts disabled -max_muxing_queue_size 9999 -c:a copy -map 0:a -c:s copy -map 0:s? -movflags -use_metadata_tags -metadata title="$filename - HDR tonemap script from youtube.com/tontonjo" -metadata:s:v:0 title="Tonemaped" -f matroska "$outputpath/$outputfile"
+$ffmpeg -c:v hevc_cuvid -init_hw_device opencl=ocl:0.0 -filter_hw_device ocl -i "$mkv" -y -threads 0 -map 0:v -codec:v:0 libx264 -pix_fmt yuv420p -preset $preset -tune $tune -crf $crf -aq-mode $aqmode -b:v $bitrate -maxrate $maxrate -bufsize $bufsize -profile:v:0 high -level 51 -x264opts:0 subme=$subme:me_range=$merange:rc_lookahead=10:me=dia:no_chroma_me:8x8dct=0:partitions=none  -force_key_frames:0 "expr:gte(t,0+n_forced*$keyframes)" -vf "hwupload,tonemap_opencl=format=nv12:primaries=$colorprimaries:transfer=$colorprimaries:matrix=$colorprimaries:tonemap=hable:desat=$desat:threshold=$threshold:peak=$peak,hwdownload,format=nv12"  -avoid_negative_ts disabled -max_muxing_queue_size 9999 -c:a copy -map 0:a -c:s copy -map 0:s? -movflags -use_metadata_tags -metadata title="$filename - HDR tonemap script from youtube.com/tontonjo" -metadata:s:v:0 title="Tonemaped" -f matroska "$outputpath/$outputfile"
 }
 # Convert H265 HDR to X264 with tonemap and convert audio to AAC 6 channels
 hdraudio() {
-$ffmpeg -c:v hevc_cuvid -init_hw_device opencl=ocl:0.0 -filter_hw_device ocl -i "$mkv" -y -threads 0 -map 0:0 -codec:v:0 libx264 -pix_fmt yuv420p -preset $preset -tune $tune -crf $crf -aq-mode $aqmode -b:v $bitrate -maxrate $maxrate -bufsize $bufsize -profile:v:0 high -level 51 -x264opts:0 subme=$subme:me_range=$merange:rc_lookahead=10:me=dia:no_chroma_me:8x8dct=0:partitions=none  -force_key_frames:0 "expr:gte(t,0+n_forced*$keyframes)" -vf "hwupload,tonemap_opencl=format=nv12:primaries=$colorprimaries:transfer=$colorprimaries:matrix=$colorprimaries:tonemap=hable:desat=$desat:threshold=$threshold:peak=$peak,hwdownload,format=nv12" -avoid_negative_ts disabled -max_muxing_queue_size 9999 -c:a $targetaudioformat -ac 6 -ab $audiobitrate -map 0:a -c:s copy -map 0:s? -movflags -use_metadata_tags -metadata title="$filename - HDR tonemap script from youtube.com/tontonjo" -metadata:s:v:0 title="Tonemaped" -f matroska "$outputpath/$outputfile"
+$ffmpeg -c:v hevc_cuvid -init_hw_device opencl=ocl:0.0 -filter_hw_device ocl -i "$mkv" -y -threads 0 -map 0:v -codec:v:0 libx264 -pix_fmt yuv420p -preset $preset -tune $tune -crf $crf -aq-mode $aqmode -b:v $bitrate -maxrate $maxrate -bufsize $bufsize -profile:v:0 high -level 51 -x264opts:0 subme=$subme:me_range=$merange:rc_lookahead=10:me=dia:no_chroma_me:8x8dct=0:partitions=none  -force_key_frames:0 "expr:gte(t,0+n_forced*$keyframes)" -vf "hwupload,tonemap_opencl=format=nv12:primaries=$colorprimaries:transfer=$colorprimaries:matrix=$colorprimaries:tonemap=hable:desat=$desat:threshold=$threshold:peak=$peak,hwdownload,format=nv12" -avoid_negative_ts disabled -max_muxing_queue_size 9999 -c:a $targetaudioformat -ac 6 -ab $audiobitrate -map 0:a -c:s copy -map 0:s? -movflags -use_metadata_tags -metadata title="$filename - HDR tonemap script from youtube.com/tontonjo" -metadata:s:v:0 title="Tonemaped" -f matroska "$outputpath/$outputfile"
 }
 # Convert other format to h264
 otherformat() {
-$ffmpeg -i "$mkv" -y -threads 0 -map 0:0 -codec:v:0 libx264 -pix_fmt yuv420p -preset $preset -tune $tune -crf $crf -aq-mode $aqmode  -b:v $bitrate -maxrate $maxrate -bufsize $bufsize -profile:v:0 high -level 51 -x264opts:0 subme=$subme:me_range=$merange:rc_lookahead=10:me=dia:no_chroma_me:8x8dct=0:partitions=none -force_key_frames:0 "expr:gte(t,0+n_forced*$keyframes)" -avoid_negative_ts disabled -max_muxing_queue_size 9999 -c:a copy -map 0:a -c:s copy -map 0:s? -movflags -use_metadata_tags -metadata title="$filename - Conversion script from youtube.com/tontonjo" -metadata:s:v:0 title=" " -f matroska "$outputpath/$outputfile"
+$ffmpeg -i "$mkv" -y -threads 0 -map 0:v -codec:v:0 libx264 -pix_fmt yuv420p -preset $preset -tune $tune -crf $crf -aq-mode $aqmode  -b:v $bitrate -maxrate $maxrate -bufsize $bufsize -profile:v:0 high -level 51 -x264opts:0 subme=$subme:me_range=$merange:rc_lookahead=10:me=dia:no_chroma_me:8x8dct=0:partitions=none -force_key_frames:0 "expr:gte(t,0+n_forced*$keyframes)" -avoid_negative_ts disabled -max_muxing_queue_size 9999 -c:a copy -map 0:a -c:s copy -map 0:s? -movflags -use_metadata_tags -metadata title="$filename - Conversion script from youtube.com/tontonjo" -metadata:s:v:0 title=" " -f matroska "$outputpath/$outputfile"
 }
 # Convert other format to h264 and convert audio to AAC 6 channels
 otherformataudio() {
-$ffmpeg -i "$mkv" -y -threads 0 -map 0:0 -codec:v:0 libx264 -pix_fmt yuv420p -preset $preset -tune $tune -crf $crf -aq-mode $aqmode  -b:v $bitrate -maxrate $maxrate -bufsize $bufsize -profile:v:0 high -level 51 -x264opts:0 subme=$subme:me_range=$merange:rc_lookahead=10:me=dia:no_chroma_me:8x8dct=0:partitions=none  -force_key_frames:0 "expr:gte(t,0+n_forced*$keyframes)" -avoid_negative_ts disabled -max_muxing_queue_size 9999 -c:a $targetaudioformat -ac 6 -ab $audiobitrate -map 0:a -c:s copy -map 0:s? -movflags -use_metadata_tags -metadata title="$filename - Conversion script from youtube.com/tontonjo" -metadata:s:v:0 title=" " -f matroska "$outputpath/$outputfile"
+$ffmpeg -i "$mkv" -y -threads 0 -map 0:v -codec:v:0 libx264 -pix_fmt yuv420p -preset $preset -tune $tune -crf $crf -aq-mode $aqmode  -b:v $bitrate -maxrate $maxrate -bufsize $bufsize -profile:v:0 high -level 51 -x264opts:0 subme=$subme:me_range=$merange:rc_lookahead=10:me=dia:no_chroma_me:8x8dct=0:partitions=none  -force_key_frames:0 "expr:gte(t,0+n_forced*$keyframes)" -avoid_negative_ts disabled -max_muxing_queue_size 9999 -c:a $targetaudioformat -ac 6 -ab $audiobitrate -map 0:a -c:s copy -map 0:s? -movflags -use_metadata_tags -metadata title="$filename - Conversion script from youtube.com/tontonjo" -metadata:s:v:0 title=" " -f matroska "$outputpath/$outputfile"
 }
 audioonly() {
 $ffmpeg -i "$mkv" -y -c:v copy -map 0:v -c:a $targetaudioformat -ac 6 -ab $audiobitrate -map 0:a -c:s copy -map 0:s? -f matroska "$outputpath/$outputfile"
@@ -121,28 +122,35 @@ then
 			echo "- Error happened while processing - original file not replaced" >> $inputpath/conversionlog.txt
 			rm -rf "$outputpath/$file.tmp"
 		else
+			newfilesize=$(ls -l "$outputpath/$outputfile" | awk '{print $5}')
+			humanrdblnewfilesize=$(echo "$newfilesize" | numfmt --to=iec)
 			echo "- Convertion ended successfully - overwriting existing file" >> $inputpath/conversionlog.txt
 			mv -f "$outputpath/$file.tmp" "$outputpath/$file"
+			echo "- Original filesize:  $humanrdblfilesize" >> $inputpath/conversionlog.txt
+			echo "- New filesize:		$humanrdblnewfilesize" >> $inputpath/conversionlog.txt
 		fi
-	# unset outputpath in order to redifine $outputpath for every file
-	unset outputpath
-	  
+		# unset outputpath in order to redifine $outputpath for every file
+		unset outputpath
 else
 	echo "- Outputpath specified - file will not be overwritten" >> $inputpath/conversionlog.txt
 	outputfile="$file"
     $transcodetask
+	exitcode=$?
 	if [ $exitcode -ne 0 ]; then
 		echo "- Error happened while processing" >> $inputpath/conversionlog.txt
 			rm -rf "$outputpath/$file"
 		else
+			newfilesize=$(ls -l "$outputpath/$outputfile" | awk '{print $5}')
+			humanrdblnewfilesize=$(echo "$newfilesize" | numfmt --to=iec)
 			echo "- Convertion ended successfully" >> $inputpath/conversionlog.txt
+			echo "- Original filesize:  $humanrdblfilesize" >> $inputpath/conversionlog.txt
+			echo "- New filesize:		$humanrdblnewfilesize" >> $inputpath/conversionlog.txt
 		fi
 fi
 }
 
 crfcheck() {
-			echo "- Determining CRF to use" >> $inputpath/conversionlog.txt
-			# If a bitrate is set use default CRF and bitrate values
+			# This is intended to try to avoid big files when converting huge 265 files
 			if (( $filesize > $setsize )); then
 				echo "- File size is greater than set size use CRF $crf_bigfile" >> $inputpath/conversionlog.txt
 				crf=$crf_bigfile
@@ -158,8 +166,9 @@ echo "- Starting conversion of .mkv in $inputpath" >> $inputpath/conversionlog.t
 
 # Check if option has been passed, if none, run in default mode and lookd for HDR content in $inputpath - if fail, fallback to non-tonemaped encoder or check if h264 10 bits
 for mkv in `find $inputpath | grep .mkv | sort -h`; do
-	echo "Processing $mkv" >> $inputpath/conversionlog.txt
+	echo "$mkv" >> $inputpath/conversionlog.txt
 	filesize=$(ls -l "$mkv" | awk '{print $5}')
+	humanrdblfilesize=$(echo "$filesize" | numfmt --to=iec)
 	file=$(basename "$mkv")
 	filename=${file::-4}
 	ffprobeoutput=$($ffprobe -show_streams $mkv)
