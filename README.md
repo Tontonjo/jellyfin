@@ -9,12 +9,14 @@
 [![Infomaniak](https://badgen.net/badge/Infomaniak/Affiliated%20link?icon=K)](https://www.infomaniak.com/goto/fr/home?utm_term=6151f412daf35)
 [![Express VPN](https://badgen.net/badge/Express%20VPN/Affiliated%20link?icon=K)](https://www.xvuslink.com/?a_fid=TontonJo)  
 
-## HDRtoSDR_converter.sh
-### Convert your H265 HDR content to H264 SDR while keeping HDR colors using Tonemap
+## jellyfin_compatibility_converter.sh
+### Convert your files in the most compatible format for Jellyfin clients
 
 ### Prerequisits:
-- A working GPU decoding setup in jellyfin  
-- Install needed dependencies IN container to have tonemap  
+This scrit is intended to be executed fro jellyfin but should work with every ffmpeg installation
+- ffmpeg  
+- A working GPU decoding setup in jellyfin for HDR conversion
+- - Install needed dependencies IN container to have tonemap  
 ```shell
 docker exec -it $jellyfin bash
 ```  
