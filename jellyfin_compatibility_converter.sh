@@ -219,11 +219,11 @@ for mkv in `find $inputpath | grep .mkv | sort -h`; do
 			transcodetask=hdr
 			runtranscode
 			# If fail try to use no tonmap command
-			if [ $exitcode -ne 0 ]; then
-				echo "- Error happened while processing - tying no tonemaped command" >> $inputpath/conversionlog.txt
-				transcodetask=otherformat
-				runtranscode
-			fi
+#			if [ $exitcode -ne 0 ]; then
+#				echo "- Error happened while processing - tying no tonemaped command" >> $inputpath/conversionlog.txt
+#				transcodetask=otherformat
+#				runtranscode
+#			fi
 		fi
 	elif  echo "$ffprobeoutput" | grep codec_name | grep -qi "$unwanted265format" ; then
 		echo "- File is H265 " >> $inputpath/conversionlog.txt
