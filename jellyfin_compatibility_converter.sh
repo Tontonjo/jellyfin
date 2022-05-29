@@ -45,11 +45,13 @@
 # 4.0 - Too many changes sorry again
 # 5.0 - add option to leave empty outputpath in order to everwrite the original file when task was successfully done
 # 5.1 - echo filesize in human rdbl format
-# 5.2 - Fix the video stream mapping in case it's not the first one
+# 5.2 - Fix media conversion of files with unknownk audio channel_laynout as it leads to transcodes from Jellyfin & add option to only process a defined number of entries
 
-# ------------- Settings -------------------------
+# ------------- General Settings -------------------------
 inputpath="/media/films"
-outputpath=""  # Leave this empty to overwrite the original file when transcode is sucessfull
+outputpath="" 			# Leave this empty to overwrite the original file when transcode was sucessfull
+entries=600 			# number of movies to process - set to a number higher than the number of entries in library to process everything, like 9999999 :-)
+# ------------- Video Settings -------------------------
 unwantedcolormap="smpte2084|bt2020nc|bt2020"
 unwanted264format="10"
 unwanted265format="HEVC"
@@ -65,13 +67,13 @@ maxrate=30044982
 bufsize=40059976
 setsize=60089964 				# File bigger will use crf_bigfile and smaller crf_smallfile
 crf_bigfile=20				# The range of the CRF scale is 0–51, where 0 is lossless
-crf_smallfile=20				# The range of the CRF scale is 0–51, where 0 is lossless
+crf_smallfile=18				# The range of the CRF scale is 0–51, where 0 is lossless
 #------------------- HDR Settings -------------------
 threshold=0.8 					# threshold is used to detect whether the scene has changed or not
 peak=100 					# Override signal/nominal/reference peak with this value
 desat=2.0 					# Apply desaturation for highlights that exceed this level of brightness - default of 2.0 - Jelly = 0
 # --------------- Audio Settings -------------------
-unwantedaudio="dts|ac3|opus"
+unwantedaudio="dts|ac3|opus|unknown"
 targetaudioformat="aac"
 audiobitrate=320000
 # ---------- END OF SETTINGS ---------------------
@@ -165,7 +167,7 @@ echo "- Starting conversion of .mkv in $inputpath" >> $inputpath/conversionlog.t
 
 
 # Check if option has been passed, if none, run in default mode and lookd for HDR content in $inputpath - if fail, fallback to non-tonemaped encoder or check if h264 10 bits
-for mkv in `find $inputpath | grep .mkv | sort -h`; do
+for mkv in `find $inputpath | grep .mkv | sort -h | head -n $entries`; do
 	echo "$mkv" >> $inputpath/conversionlog.txt
 	filesize=$(ls -l "$mkv" | awk '{print $5}')
 	humanrdblfilesize=$(echo "$filesize" | numfmt --to=iec)
@@ -202,7 +204,7 @@ for mkv in `find $inputpath | grep .mkv | sort -h`; do
 				colorprimaries=bt709
 		fi
 		crfcheck
-		if echo "$ffprobeoutput" | grep codec | grep -Eqi "$unwantedaudio" ; then
+		if echo "$ffprobeoutput" | grep 'codec\|channel_layout' | grep -Eqi "$unwantedaudio" ; then
 			echo "- Processing video + audio" >> $inputpath/conversionlog.txt
 			# Run ffmpeg command hdraudio
 			transcodetask=hdraudio
@@ -219,16 +221,16 @@ for mkv in `find $inputpath | grep .mkv | sort -h`; do
 			transcodetask=hdr
 			runtranscode
 			# If fail try to use no tonmap command
-#			if [ $exitcode -ne 0 ]; then
-#				echo "- Error happened while processing - tying no tonemaped command" >> $inputpath/conversionlog.txt
-#				transcodetask=otherformat
-#				runtranscode
-#			fi
+			if [ $exitcode -ne 0 ]; then
+				echo "- Error happened while processing - tying no tonemaped command" >> $inputpath/conversionlog.txt
+				transcodetask=otherformat
+				runtranscode
+			fi
 		fi
 	elif  echo "$ffprobeoutput" | grep codec_name | grep -qi "$unwanted265format" ; then
 		echo "- File is H265 " >> $inputpath/conversionlog.txt
 		crfcheck
-		if echo "$ffprobeoutput" | grep codec | grep -Eqi "$unwantedaudio" ; then
+		if echo "$ffprobeoutput" | grep 'codec\|channel_layout' | grep -Eqi "$unwantedaudio" ; then
 			echo "- Processing video + audio" >> $inputpath/conversionlog.txt
 			# Run ffmpeg command otherformataudio
 			transcodetask=otherformataudio
@@ -243,7 +245,7 @@ for mkv in `find $inputpath | grep .mkv | sort -h`; do
 	elif  echo "$ffprobeoutput" | grep profile | grep -Eqi "$unwanted264format" ; then
 		echo "- File is H264 10 bits" >> $inputpath/conversionlog.txt
 			crfcheck
-		if echo "$ffprobeoutput" | grep codec | grep -Eqi "$unwantedaudio" ; then
+		if echo "$ffprobeoutput" | grep 'codec\|channel_layout' | grep -Eqi "$unwantedaudio" ; then
 			echo "- Processing video + audio" >> $inputpath/conversionlog.txt
 			# Run ffmpeg command otherformataudio
 			transcodetask=otherformataudio
@@ -255,7 +257,7 @@ for mkv in `find $inputpath | grep .mkv | sort -h`; do
 			runtranscode
 		fi
 	else
-		if echo "$ffprobeoutput" | grep codec | grep -Eqi "$unwantedaudio" ; then
+		if echo "$ffprobeoutput" | grep 'codec\|channel_layout' | grep -Eqi "$unwantedaudio" ; then
 			echo "- Processing audio only" >> $inputpath/conversionlog.txt
 			# Run ffmpeg command audioonly
 			transcodetask=audioonly
