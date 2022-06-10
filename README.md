@@ -13,7 +13,7 @@
 ### Convert your files in the most compatible format for Jellyfin clients
 
 ### Prerequisits:
-This scrit is intended to be executed fro jellyfin but should work with every ffmpeg installation
+This script is intended to be executed from Jellyfin but should work with every ffmpeg installation
 - ffmpeg  
 - A working GPU decoding setup in jellyfin for HDR conversion
 - - Install needed dependencies IN container to have tonemap  
