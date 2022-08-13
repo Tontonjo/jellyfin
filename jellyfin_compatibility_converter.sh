@@ -47,6 +47,7 @@
 # 5.1 - echo filesize in human rdbl format
 # 5.2 - Fix media conversion of files with unknownk audio channel_laynout as it leads to transcodes from Jellyfin & add option to only process a defined number of entries
 # 5.3 - fix HDR conversion under new Jellyfin version, make logs a little bit more verbose
+# 5.4 - If a tonmap is needed and fails, now convert only if an output folder was set.
 
 # ------------- General Settings -------------------------
 inputpath="/media/films"
@@ -205,23 +206,32 @@ for mkv in `find $inputpath | grep .mkv | sort -h | head -n $entries`; do
 			# Run ffmpeg command hdraudio
 			transcodetask=hdraudio
 			runtranscode
-			# If fail try to use no tonmap command
-			#if [ $exitcode -ne 0 ]; then
-			#	echo "- Trying no tonemaped command" >> $inputpath/conversionlog.txt
-			#	transcodetask=otherformataudio
-			#	runtranscode
-			#fi
+			# If fail and an outputpath is set try to use no tonmap command
+			if [ $exitcode -ne 0 ]; then
+				if [ -z "$outputpath" ]; then
+					echo "- Error hapened trying HDR conversion - overwriting was set: aborting" >> $inputpath/conversionlog.txt
+				else
+					echo "- Error happened while processing - trying no tonemaped command" >> $inputpath/conversionlog.txt
+					transcodetask=otherformataudio
+					runtranscode
+				fi
+			
+			fi
 		else
 			echo "- Processing HDR video only" >> $inputpath/conversionlog.txt
 			# Run ffmpeg command hdr
 			transcodetask=hdr
 			runtranscode
-			# If fail try to use no tonmap command
-			#if [ $exitcode -ne 0 ]; then
-			#	echo "- Error happened while processing - tying no tonemaped command" >> $inputpath/conversionlog.txt
-			#	transcodetask=otherformat
-			#	runtranscode
-			#fi
+			# If fail and an outputpath is set try to use no tonmap command
+			if [ $exitcode -ne 0 ]; then
+				if [ -z "$outputpath" ]; then
+					echo "- Error hapened trying HDR conversion - overwriting was set: aborting" >> $inputpath/conversionlog.txt
+					else
+					echo "- Error happened while processing - trying no tonemaped command" >> $inputpath/conversionlog.txt
+					transcodetask=otherformat
+					runtranscode
+				fi
+			fi
 		fi
 	elif  echo "$ffprobeoutput" | grep codec_name | grep -qi "$unwanted265format" ; then
 		echo "- File is H265 " >> $inputpath/conversionlog.txt
