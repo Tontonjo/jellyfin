@@ -81,6 +81,7 @@ audiobitrate=320000
 # ---------- END OF SETTINGS ---------------------
 
 # ---------------- ENV VARIABLE -----------------------
+date=$(date +%Y_%m_%d-%H_%M_%S)
 ffmpeg=/usr/lib/jellyfin-ffmpeg/ffmpeg
 ffprobe=/usr/lib/jellyfin-ffmpeg/ffprobe
 # Allow to handle spaces in "for" loop
