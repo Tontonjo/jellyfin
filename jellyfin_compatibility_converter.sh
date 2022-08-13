@@ -193,6 +193,7 @@ for mkv in `find $inputpath | grep .mkv | sort -h | head -n $entries`; do
 		# Transcode Video only
 		echo "- Converting Video to h264 8 bits" >> $inputpath/conversionlog.txt
 		transcodetask=otherformat
+		crfcheck
 		runtranscode
 	elif  [[ $1 = "-rename" ]]; then 
 		# Rename video track
