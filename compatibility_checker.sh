@@ -18,12 +18,14 @@
 # 1.0 - Initial release
 # 1.1 - Sort alphabetically 
 # 1.2 - correction to use ffmpeg echo and ensure grep is for codecs
-# 2.0 - some improvements
+# 2.0 - added dovi unsupported format wich may cause ffmpeg to hang
+
 
 # ------------- Settings -------------------------
 inputpath=/media/films
 unwantedsub="pgs"
 forcedsub="forces|foreced"
+unwantedvideorange="dovi"
 unwanted265format="HEVC"
 unwanted264format="10"
 unwantedaudio="dts|ac3"
@@ -45,7 +47,10 @@ echo "- Starting Check of .mkv in $inputpath" >> $inputpath/checklog.txt
 	for mkv in `find $inputpath | sort -h | grep .mkv`
 	do
 	echo "------------ $mkv ----------------" >> $inputpath/checklog.txt
-	ffprobeoutput=$($ffprobe -show_streams $mkv)
+	ffprobeoutput=$($ffprobe -show_streams "$mkv")
+	if echo "$ffprobeoutput" | grep -Eqi "$unwantedvideorange" ; then
+		echo "$mkv - Found unwanted video range (unwantedvideorange)" >> $inputpath/checklog.txt
+	fi
 	if echo "$ffprobeoutput" | grep codec_name | grep -qi "$unwanted265format" ; then
 		echo "$mkv - Unwanted format ($unwanted265format)" >> $inputpath/checklog.txt 
 		if echo "$ffprobeoutput" | grep -Eqi "$unwantedcolormap" ; then
