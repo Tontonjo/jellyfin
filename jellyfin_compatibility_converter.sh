@@ -1,10 +1,10 @@
 #!/bin/bash
 
-# Tonton Jo - 2022
+# Tonton Jo - 2023
 # Join me on Youtube: https://www.youtube.com/c/tontonjo
 
-# This scripts aim to convert H265 HDR content to H264 SDR while trying to keep HDR colors using Tonemap
-# It will look in $inputpath for HDR content and convert them to x264 SDR to $outputpath
+# This scripts aim to convert all vidéos in MKV format in the best supported one in jellyfin: h264 with AAC Audio to avoid transcoding
+# It will look in $inputpath for content and convert them to x264 SDR to $outputpath
 
 # Prerequisits:
 # A working GPU decoding setup in jellyfin if you want to enable GPU
