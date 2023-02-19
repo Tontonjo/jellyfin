@@ -7,7 +7,7 @@
 # It will look in $inputpath for HDR content and convert them to x264 SDR to $outputpath
 
 # Prerequisits:
-# A working GPU decoding setup in jellyfin
+# A working GPU decoding setup in jellyfin if you want to enable GPU
 # Install needed dependencies to have tonemap
 # echo "deb http://deb.debian.org/debian buster-backports main contrib non-free" >> /etc/apt/sources.list
 # apt-get update
@@ -21,11 +21,10 @@
 # run it executable "docker exec jellyfin /media/HDRtoSDR_converter.sh"
 # arguments:
 # none: automatically process video: hdr and vidéo + audio if needed
-# -all: process vidéo + audio if needed
-# -video: Only convert video
-# -audio: only convert audion to specified format
-# -r: rename video track with the filename
-# -smooth: upgrade vidéo to 60 FPS using tblend
+# -video	: Only convert video
+# -audio	: Only convert audio to specified format
+# -r		: Rename video track with the filename
+# -smooth	: upgrade vidéo to 60 FPS using tblend
 
 # Sources: 
 # HDR tonemap: all credits to Jellyfin https://github.com/jellyfin/jellyfin
@@ -46,36 +45,46 @@
 # 5.0 - add option to leave empty outputpath in order to everwrite the original file when task was successfully done
 # 5.1 - echo filesize in human rdbl format
 # 5.2 - Fix media conversion of files with unknownk audio channel_laynout as it leads to transcodes from Jellyfin & add option to only process a defined number of entries
-# 5.3 - fix HDR conversion under new Jellyfin version, make logs a little bit more verbose
-# 5.4 - If a tonmap is needed and fails, now convert only if an output folder was set.
+# 6.0 - Can now remove unwanted languages
+# 6.1 - add check for unwanted language
+# 6.2 - fix audio - add cancelation of transcode if dovi is found
+# 7.0 - Reworked script for better reading and add option for GPU x264 decoding
+# 7.1 - Add option to remove language separatly from audio management, add a ingnore list
 
 # ------------- General Settings -------------------------
-inputpath="/media/films"
-outputpath="" 			# Leave this empty to overwrite the original file when transcode was sucessfull
-entries=600 			# number of movies to process - set to a number higher than the number of entries in library to process everything, like 9999999 :-)
+inputpath="/media/movies"
+outputpath=""			# Leave this empty to overwrite the original file when transcode was sucessfull
+entries=9999			# number of movies to process - set to a number higher than the number of entries in library to process everything, like 9999999 :-)
+ignore=""	# Work in progress - List of file, names or folder to ignore
+# ------------- GPU Mode Settings -------------------------
+gpuactive=1
 # ------------- Video Settings -------------------------
 unwantedcolormap="smpte2084|bt2020nc|bt2020"
 unwanted264format="10"
 unwanted265format="HEVC"
-preset=slower 					# Use the slowest preset that you have patience for: ultrafast,superfastveryfast,faster,fast,medium,slow,slower,veryslow,placebo
+unwantedvideorange="dovi"
+preset=slow 					# Use the slowest preset that you have patience for: ultrafast,superfastveryfast,faster,fast,medium,slow,veryslow,placebo
 tune=film  					# film,animation,grain,stillimage,fastdecode,zerolatency
 subme=9 					#1: Fastest - 2-5: Progressively better - 6-7: 6 is the defaul
 me_range=20 					# MErange controls the max range of the motion search - default of 16 - useful on HD footage and for high-motion footage
 aqmode=3
 keyframes=1
 # ------------ CRF Mode -----------------
-bitrate=30044982				# typical values: bitrate 10014994 - maxrate 10014994 - bufsize 5007497
-maxrate=30044982 
-bufsize=40059976
-setsize=60089964 				# File bigger will use crf_bigfile and smaller crf_smallfile
-crf_bigfile=20				# The range of the CRF scale is 0–51, where 0 is lossless
-crf_smallfile=18				# The range of the CRF scale is 0–51, where 0 is lossless
+bitrate=15022491				# typical values: bitrate 10014994 30044982 - maxrate 10014994 - bufsize 5007497
+maxrate=15022491 				# Default: 30044982
+bufsize=40059976				# Default: 40059976 / 2x bitrate
+setsize=30044982 				# File bigger will use crf_bigfile and smaller crf_smallfile
+crf_bigfile=24					# The range of the CRF scale is 0–51, where 0 is lossless
+crf_smallfile=22				# The range of the CRF scale is 0–51, where 0 is lossless
+
 #------------------- HDR Settings -------------------
 threshold=0.8 					# threshold is used to detect whether the scene has changed or not
 peak=100 					# Override signal/nominal/reference peak with this value
 desat=2.0 					# Apply desaturation for highlights that exceed this level of brightness - default of 2.0 - Jelly = 0
 # --------------- Audio Settings -------------------
 unwantedaudio="dts|ac3|opus|unknown"
+neededlanguage="vff"		# https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes
+unwantedlanguage="vfq"  	# https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes
 targetaudioformat="aac"
 audiobitrate=320000
 # ---------- END OF SETTINGS ---------------------
@@ -89,36 +98,126 @@ OIFS="$IFS"
 IFS=$'\n'
 # ---------------- ENV VARIABLE -----------------------
 
-# Convert H265 HDR to X264 with tonemap
+# GPU - Convert H265 HDR to X264 with tonemap
 hdr() {
-$ffmpeg -init_hw_device cuda=cu:0 -filter_hw_device cu -hwaccel nvdec -hwaccel_output_format cuda -i "$mkv" -y -threads 0 -map 0:v:0 -codec:v:0 libx264 -pix_fmt yuv420p -preset $preset -tune $tune -crf $crf -aq-mode $aqmode -b:v $bitrate -maxrate $maxrate -bufsize $bufsize -profile:v:0 high -level 51 -x264opts:0 subme=$subme:me_range=$merange:rc_lookahead=10:me=dia:no_chroma_me:8x8dct=0:partitions=none  -force_key_frames:0 "expr:gte(t,0+n_forced*$keyframes)" -vf "hwupload=derive_device=cuda,tonemap_cuda=format=yuv420p:p=bt709:t=bt709:m=bt709:tonemap=hable:peak=$peak:desat=$desat:threshold=$threshold,hwdownload"  -avoid_negative_ts disabled -max_muxing_queue_size 9999 -c:a copy -map 0:a -c:s copy -map 0:s? -movflags -use_metadata_tags -metadata title="$filename - HDR tonemap script from youtube.com/tontonjo" -metadata:s:v:0 title="Tonemaped" -f matroska "$outputpath/$outputfile"
+$ffmpeg -init_hw_device cuda=cu:0 \
+-filter_hw_device cu -hwaccel nvdec -hwaccel_output_format cuda \
+-i "$mkv" -y -threads 0 \
+-map 0:v:0 -codec:v:0 libx264 -pix_fmt yuv420p \
+-preset $preset -tune $tune -crf $crf -aq-mode $aqmode -b:v $bitrate -maxrate $maxrate -bufsize $bufsize \
+-profile:v:0 high -level 31 -x264opts:0 subme=$subme:me_range=$merange:rc_lookahead=10:me=dia:no_chroma_me:8x8dct=0:partitions=none  \
+-force_key_frames:0 "expr:gte(t,0+n_forced*$keyframes)" \
+-vf "hwupload=derive_device=cuda,tonemap_cuda=format=yuv420p:p=bt709:t=bt709:m=bt709:tonemap=hable:peak=$peak:desat=$desat:threshold=$threshold,hwdownload"  -avoid_negative_ts disabled -max_muxing_queue_size 9999 \
+-c:a copy -map 0:a \
+-c:s copy -map 0:s? \
+-movflags -use_metadata_tags -metadata title="$filename - HDR tonemap script from youtube.com/tontonjo" -metadata:s:v:0 title="Tonemaped" \
+-f matroska "$outputpath/$outputfile"
 }
-# Convert H265 HDR to X264 with tonemap and convert audio to AAC 6 channels
+# GPU - Convert H265 HDR to X264 with tonemap and convert audio to AAC 6 channels
 hdraudio() {
-$ffmpeg -init_hw_device cuda=cu:0 -filter_hw_device cu -hwaccel cuda -hwaccel_output_format cuda -i "$mkv" -y -threads 0 -map 0:v:0 -codec:v:0 libx264 -pix_fmt yuv420p -preset $preset -tune $tune -crf $crf -aq-mode $aqmode -b:v $bitrate -maxrate $maxrate -bufsize $bufsize -profile:v:0 high -level 51 -x264opts:0 subme=$subme:me_range=$merange:rc_lookahead=10:me=dia:no_chroma_me:8x8dct=0:partitions=none  -force_key_frames:0 "expr:gte(t,0+n_forced*$keyframes)" -vf "hwupload=derive_device=cuda,tonemap_cuda=format=yuv420p:p=bt709:t=bt709:m=bt709:tonemap=hable:peak=$peak:desat=$desat:threshold=$threshold,hwdownload" -avoid_negative_ts disabled -max_muxing_queue_size 9999 -c:a $targetaudioformat -ac 6 -ab $audiobitrate -map 0:a -c:s copy -map 0:s? -movflags -use_metadata_tags -metadata title="$filename - HDR tonemap script from youtube.com/tontonjo" -metadata:s:v:0 title="Tonemaped" -f matroska "$outputpath/$outputfile"
+$ffmpeg -init_hw_device cuda=cu:0 \
+ -filter_hw_device cu -hwaccel cuda -hwaccel_output_format cuda \
+ -i "$mkv" -y -threads 0 \
+ -map 0:v:0 -codec:v:0 libx264 -pix_fmt yuv420p \
+ -preset $preset -tune $tune -crf $crf -aq-mode $aqmode -b:v $bitrate -maxrate $maxrate -bufsize $bufsize \
+ -profile:v:0 high -level 51 -x264opts:0 subme=$subme:me_range=$merange:rc_lookahead=10:me=dia:no_chroma_me:8x8dct=0:partitions=none -force_key_frames:0 "expr:gte(t,0+n_forced*$keyframes)" \
+ -vf "hwupload=derive_device=cuda,tonemap_cuda=format=yuv420p:p=bt709:t=bt709:m=bt709:tonemap=hable:peak=$peak:desat=$desat:threshold=$threshold,hwdownload" \
+ -avoid_negative_ts disabled -max_muxing_queue_size 9999 \
+ -c:a $targetaudioformat -ac 6 -ab $audiobitrate -map 0:a \
+ -c:s copy -map 0:s? \
+ -movflags -use_metadata_tags -metadata title="$filename - HDR tonemap script from youtube.com/tontonjo" -metadata:s:v:0 title="Tonemaped" \
+ -f matroska "$outputpath/$outputfile"
 }
-# Convert other format to h264
+# CPU - Convert other format to h264
 otherformat() {
-$ffmpeg -i "$mkv" -y -threads 0 -map 0:v:0 -codec:v:0 libx264 -pix_fmt yuv420p -preset $preset -tune $tune -crf $crf -aq-mode $aqmode  -b:v $bitrate -maxrate $maxrate -bufsize $bufsize -profile:v:0 high -level 51 -x264opts:0 subme=$subme:me_range=$merange:rc_lookahead=10:me=dia:no_chroma_me:8x8dct=0:partitions=none -force_key_frames:0 "expr:gte(t,0+n_forced*$keyframes)" -avoid_negative_ts disabled -max_muxing_queue_size 9999 -c:a copy -map 0:a -c:s copy -map 0:s? -movflags -use_metadata_tags -metadata title="$filename - Conversion script from youtube.com/tontonjo" -metadata:s:v:0 title=" " -f matroska "$outputpath/$outputfile"
+$ffmpeg -i "$mkv" -y -threads 0 \
+-map 0:v:0 -codec:v:0 libx264 -pix_fmt yuv420p \
+-preset $preset -tune $tune -crf $crf -aq-mode $aqmode  -b:v $bitrate -maxrate $maxrate -bufsize $bufsize \
+-profile:v:0 high -level 51 -x264opts:0 subme=$subme:me_range=$merange:rc_lookahead=10:me=dia:no_chroma_me:8x8dct=0:partitions=none -force_key_frames:0 "expr:gte(t,0+n_forced*$keyframes)" \
+-vf "setparams=color_primaries=bt709:color_trc=bt709:colorspace=bt709" -avoid_negative_ts disabled -max_muxing_queue_size 9999 \
+-c:a copy -map 0:a \
+-c:s copy -map 0:s? \
+-movflags -use_metadata_tags -metadata title="$filename - Conversion script from youtube.com/tontonjo" -metadata:s:v:0 title=" " \
+-f matroska "$outputpath/$outputfile"
 }
-# Convert other format to h264 and convert audio to AAC 6 channels
+# GPU - Convert other format to h264
+gpuotherformat() {
+$ffmpeg -init_hw_device cuda=cu:0 -filter_hw_device cu -hwaccel cuda -hwaccel_output_format cuda -threads 1 \
+-i "$mkv" -y \
+-map 0:v:0 -codec:v:0 h264_nvenc -pix_fmt yuv420p \
+-preset $preset -crf $crf -aq-mode $aqmode  -b:v $bitrate -maxrate $maxrate -bufsize $bufsize \
+-profile:v:0 high -level 51 -x264opts:0 subme=$subme:me_range=$merange:rc_lookahead=10:me=dia:no_chroma_me:8x8dct=0:partitions=none -force_key_frames:0 "expr:gte(t,0+n_forced*$keyframes)" \
+-vf "hwdownload,format=nv12,setparams=color_primaries=bt709:color_trc=bt709:colorspace=bt709" -avoid_negative_ts disabled -max_muxing_queue_size 9999 \
+-c:a copy -map 0:a \
+-c:s copy -map 0:s? \
+-movflags -use_metadata_tags -metadata title="$filename - Conversion script from youtube.com/tontonjo" -metadata:s:v:0 title=" " \
+-f matroska "$outputpath/$outputfile"
+}
+# CPU - Convert other format to h264 and convert audio to AAC 6 channels
 otherformataudio() {
-$ffmpeg -i "$mkv" -y -threads 0 -map 0:v:0 -codec:v:0 libx264 -pix_fmt yuv420p -preset $preset -tune $tune -crf $crf -aq-mode $aqmode  -b:v $bitrate -maxrate $maxrate -bufsize $bufsize -profile:v:0 high -level 51 -x264opts:0 subme=$subme:me_range=$merange:rc_lookahead=10:me=dia:no_chroma_me:8x8dct=0:partitions=none  -force_key_frames:0 "expr:gte(t,0+n_forced*$keyframes)" -avoid_negative_ts disabled -max_muxing_queue_size 9999 -c:a $targetaudioformat -ac 6 -ab $audiobitrate -map 0:a -c:s copy -map 0:s? -movflags -use_metadata_tags -metadata title="$filename - Conversion script from youtube.com/tontonjo" -metadata:s:v:0 title=" " -f matroska "$outputpath/$outputfile"
+$ffmpeg -i "$mkv" -y -threads 0 -map 0:v:0 -codec:v:0 libx264 -pix_fmt yuv420p \
+-preset $preset -tune $tune -crf $crf -aq-mode $aqmode  -b:v $bitrate -maxrate $maxrate -bufsize $bufsize \
+-profile:v:0 high -level 51 -x264opts:0 subme=$subme:me_range=$merange:rc_lookahead=10:me=dia:no_chroma_me:8x8dct=0:partitions=none  -force_key_frames:0 "expr:gte(t,0+n_forced*$keyframes)" \
+-vf "setparams=color_primaries=bt709:color_trc=bt709:colorspace=bt709" -avoid_negative_ts disabled -max_muxing_queue_size 9999 \
+-c:a $targetaudioformat -ac 6 -ab $audiobitrate -map 0:a \
+-c:s copy -map 0:s? \
+-movflags -use_metadata_tags -metadata title="$filename - Conversion script from youtube.com/tontonjo" -metadata:s:v:0 title=" " \
+-f matroska "$outputpath/$outputfile"
 }
+
+# GPU - Convert other format to h264 and convert audio to AAC 6 channels
+gpuotherformataudio() {
+$ffmpeg -init_hw_device cuda=cu:0 -filter_hw_device cu -hwaccel cuda -hwaccel_output_format cuda -threads 1 \
+-i "$mkv" -y -threads 0 \
+-map 0:v:0 -codec:v:0 h264_nvenc -pix_fmt yuv420p \
+-preset p1 -crf $crf -aq-mode $aqmode  -b:v $bitrate -maxrate $maxrate -bufsize $bufsize \
+-profile:v:0 high -level 51 -x264opts:0 subme=$subme:me_range=$merange:rc_lookahead=10:me=dia:no_chroma_me:8x8dct=0:partitions=none  -force_key_frames:0 "expr:gte(t,0+n_forced*$keyframes)" \
+-vf "hwdownload,format=nv12,setparams=color_primaries=bt709:color_trc=bt709:colorspace=bt709" -avoid_negative_ts disabled -max_muxing_queue_size 9999 \
+-c:a $targetaudioformat -ac 6 -ab $audiobitrate -map 0:a \
+-c:s copy -map 0:s? \
+-movflags -use_metadata_tags -metadata title="$filename - Conversion script from youtube.com/tontonjo" -metadata:s:v:0 title=" " \
+-f matroska "$outputpath/$outputfile"
+}
+
+# CPU - Convert audio only
 audioonly() {
-$ffmpeg -i "$mkv" -y -c:v copy -map 0:v -c:a $targetaudioformat -ac 6 -ab $audiobitrate -max_muxing_queue_size 9999 -map 0:a -c:s copy -map 0:s? -f matroska "$outputpath/$outputfile"
+$ffmpeg -i "$mkv"  -y -c:v copy -map 0:v -map 0:a \
+-c:a $targetaudioformat -ac 6 -ab $audiobitrate -max_muxing_queue_size 9999 \
+-c:s copy -map 0:s? -f matroska "$outputpath/$outputfile"
 }
+# CPU - Smooth video using minterpolate (fast but not very efficient)
 smooth() {
-$ffmpeg -i "$mkv" -y -threads 0 -map 0:v:0 -filter:v "tblend" -r 60 -c:a copy -map 0:a -c:s copy -map 0:s? -f matroska "$outputpath/$outputfile"
+# https://blog.programster.org/ffmpeg-create-smooth-videos-with-frame-interpolation
+$ffmpeg -i "$mkv" -y -threads 0 -map 0:v:0 \
+-vf "minterpolate=fps=60:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1" \
+-c:a copy -map 0:a \
+-c:s copy -map 0:s? \
+-f matroska "$outputpath/$outputfile"
 }
+# CPU - Just rename the MKV title metadata using the filename
 rename() {
-$ffmpeg -i "$mkv" -c:v copy -map 0:v -c:a copy -map 0:a -c:s copy -map 0:s -movflags -use_metadata_tags -metadata title="$filename" -f matroska "$outputpath/$outputfile"
+$ffmpeg -i "$mkv" -c:v copy -map 0:v \
+-c:a copy -map 0:a \
+-c:s copy -map 0:s \
+-movflags -use_metadata_tags -metadata title="$filename" \
+-f matroska "$outputpath/$outputfile"
+}
+# CPU - alpha: remove unwanted language, 1 at a time
+unwanted_language() {
+$ffmpeg -i "$mkv" -y -c:v copy -map 0:v -map 0:a -map -0:a:$removeaudiotrackindex \
+-c:a $targetaudioformat -ac 6 -ab $audiobitrate -max_muxing_queue_size 9999 \
+-c:s copy -map 0:s? \
+-f matroska "$outputpath/$outputfile"
 }
 
 # run the transcode task If no output path is specified, replace the original file on conversion success
 runtranscode() {
-if [ -z "$outputpath" ]
-then
+
+if echo "$mkv" | grep -Ewi "$ignore" ; then
+echo "- File is in ignore list $mkv" >> $inputpath/conversionlog.txt
+fi
+
+if [ -z "$outputpath" ]; then
 	  echo "- No outputpath specified, file will be overwritten on success" >> $inputpath/conversionlog.txt
       outputpath=$(dirname "$mkv")
 	  outputfile="$file.tmp"
@@ -139,19 +238,20 @@ then
 		unset outputpath
 else
 	echo "- Outputpath specified - file will not be overwritten" >> $inputpath/conversionlog.txt
+	mkdir -p $outputpath
 	outputfile="$file"
     $transcodetask
 	exitcode=$?
 	if [ $exitcode -ne 0 ]; then
 		echo "- Error happened while processing" >> $inputpath/conversionlog.txt
-			rm -rf "$outputpath/$file"
-		else
-			newfilesize=$(ls -l "$outputpath/$outputfile" | awk '{print $5}')
-			humanrdblnewfilesize=$(echo "$newfilesize" | numfmt --to=iec)
-			echo "- Convertion ended successfully" >> $inputpath/conversionlog.txt
-			echo "- Original filesize:  $humanrdblfilesize" >> $inputpath/conversionlog.txt
-			echo "- New filesize:		$humanrdblnewfilesize" >> $inputpath/conversionlog.txt
-		fi
+		rm -rf "$outputpath/$file"
+	else
+		newfilesize=$(ls -l "$outputpath/$outputfile" | awk '{print $5}')
+		humanrdblnewfilesize=$(echo "$newfilesize" | numfmt --to=iec)
+		echo "- Convertion ended successfully" >> $inputpath/conversionlog.txt
+		echo "- Original filesize:  $humanrdblfilesize" >> $inputpath/conversionlog.txt
+		echo "- New filesize:		$humanrdblnewfilesize" >> $inputpath/conversionlog.txt
+	fi
 fi
 }
 
@@ -166,33 +266,67 @@ crfcheck() {
 			fi
 }
 
-echo "----- Tonton Jo - 2022 -----" >> $inputpath/conversionlog.txt
+removeunwantedlanguage() {
+		# Get title and index, filter to get line abve the unwanted language, remove what's before = then substract 1 as this number ignore the video track
+		removeaudiotrackindex=$(echo "$ffprobeoutput" -show_streams "$mkv" | grep -Eiw "index|title" | grep -Eiw -B 1 $unwantedlanguage | grep index | sed 's/^[^=]*=//' | awk '{print $1-1}')
+		if [ -z "$removeaudiotrackindex" ]; then
+				echo "- No Audio track to remove" >> $inputpath/conversionlog.txt 
+		else
+			# If there's a track to remove, ensure it contains the $neededlanguage
+			if echo "$ffprobeoutput" -show_streams "$mkv" | grep -Eiw "title" | grep -Eiw $neededlanguage; then
+				echo "- Removing index $removeaudiotrackindex" >> $inputpath/conversionlog.txt
+				transcodetask=unwanted_language
+				runtranscode
+				else
+				echo "- Unwanted format found but VFF not found - aborting" >> $inputpath/conversionlog.txt
+			fi
+
+		fi
+}
+
+audio() {
+		if echo "$ffprobeoutput" | grep -E 'codec|channel_layout' | grep -Eqi "$unwantedaudio" ; then
+				echo "- Unwanted format found - converting audio" >> $inputpath/conversionlog.txt 
+				transcodetask=audioonly
+				runtranscode
+		else
+				echo "- No conversion needed" >> $inputpath/conversionlog.txt 
+		fi
+}
+
+echo "----- Tonton Jo - 2022 -----" > $inputpath/conversionlog.txt
 echo "------- Job of $date -------" >> $inputpath/conversionlog.txt
 echo "- Starting conversion of .mkv in $inputpath" >> $inputpath/conversionlog.txt
 
 
-# Check if option has been passed, if none, run in default mode and lookd for HDR content in $inputpath - if fail, fallback to non-tonemaped encoder or check if h264 10 bits
+# Check if option has been passed, if none, run in default mode and look for HDR content in $inputpath - if fail, fallback to non-tonemaped encoder or check if h264 10 bits
 for mkv in `find $inputpath | grep .mkv | sort -h | head -n $entries`; do
 	echo "$mkv" >> $inputpath/conversionlog.txt
 	filesize=$(ls -l "$mkv" | awk '{print $5}')
 	humanrdblfilesize=$(echo "$filesize" | numfmt --to=iec)
 	file=$(basename "$mkv")
 	filename=${file::-4}
-	ffprobeoutput=$($ffprobe -show_streams $mkv)
-	if  [[ $1 = "-smooth" ]]; then 
+	ffprobeoutput=$($ffprobe -show_streams "$mkv")
+	if echo "$ffprobeoutput" | grep -Eqi "$unwantedvideorange" ; then
+		echo "$mkv - Found unwanted video range ($unwantedvideorange) that cannot be converted atm - continuing" >> $inputpath/checklog.txt
+		continue
+	elif  [[ $1 = "-smooth" ]]; then 
 		# raise framerate of input to 60 fps
 		echo "- Smoothing video to 60 FPS" >> $inputpath/conversionlog.txt
 		transcodetask=smooth
 		runtranscode
+	elif  [[ $1 = "-removeunwantedlanguage" ]]; then 
+		# remove $unwantedlanguage
+		echo "- Removing $unwantedlanguage" >> $inputpath/conversionlog.txt
+		transcodetask=removeunwantedlanguage
+		runtranscode
 	elif  [[ $1 = "-audio" ]]; then
 		# Transcode Audio only
-		echo "- Converting audio to AAC 6 channels" >> $inputpath/conversionlog.txt
-		transcodetask=audioonly
-		runtranscode
+		audio
 	elif  [[ $1 = "-video" ]]; then 
 		# Transcode Video only
 		echo "- Converting Video to h264 8 bits" >> $inputpath/conversionlog.txt
-		transcodetask=otherformat
+		transcodetask=gpuotherformat
 		crfcheck
 		runtranscode
 	elif  [[ $1 = "-rename" ]]; then 
@@ -200,69 +334,90 @@ for mkv in `find $inputpath | grep .mkv | sort -h | head -n $entries`; do
 		echo "- Renaming video track with $filename" >> $inputpath/conversionlog.txt
 		transcodetask=rename
 		runtranscode
-	# If no option set - entering auto mode: check HDR: if fail try to normal transcode - if audio is equal to $unwantedaudio - transcode audion aswell
-	elif echo "$ffprobeoutput" | grep -Eqi "$unwantedcolormap" ; then
-		crfcheck
-		if echo "$ffprobeoutput" | grep 'codec\|channel_layout' | grep -Eqi "$unwantedaudio" ; then
-			echo "- Processing HDR video + audio" >> $inputpath/conversionlog.txt
+		
+	# If no option set - entering auto mode: check HDR: if fail try to normal transcode - if audio is equal to $unwantedaudio - transcode audio aswell
+	#
+	#	crfcheck
+	#	if echo "$ffprobeoutput" | grep 'codec\|channel_layout' | grep -Eqi "$unwantedaudio" ; then
+	#		echo "- Processing HDR video + audio" >> $inputpath/conversionlog.txt
 			# Run ffmpeg command hdraudio
-			transcodetask=hdraudio
-			runtranscode
-			# If fail and an outputpath is set try to use no tonmap command
-			if [ $exitcode -ne 0 ]; then
-				if [ -z "$outputpath" ]; then
-					echo "- Error hapened trying HDR conversion - overwriting was set: aborting" >> $inputpath/conversionlog.txt
-				else
-					echo "- Error happened while processing - trying no tonemaped command" >> $inputpath/conversionlog.txt
-					transcodetask=otherformataudio
-					runtranscode
-				fi
-			
-			fi
-		else
-			echo "- Processing HDR video only" >> $inputpath/conversionlog.txt
+	#		transcodetask=hdraudio
+	#		runtranscode
+			# If fail try to use no tonmap command
+			#if [ $exitcode -ne 0 ]; then
+			#	echo "- Trying no tonemaped command" >> $inputpath/conversionlog.txt
+			#	transcodetask=otherformataudio
+			#	runtranscode
+			#fi
+	#	else
+	#		echo "- Processing HDR video only" >> $inputpath/conversionlog.txt
 			# Run ffmpeg command hdr
-			transcodetask=hdr
-			runtranscode
-			# If fail and an outputpath is set try to use no tonmap command
-			if [ $exitcode -ne 0 ]; then
-				if [ -z "$outputpath" ]; then
-					echo "- Error hapened trying HDR conversion - overwriting was set: aborting" >> $inputpath/conversionlog.txt
-					else
-					echo "- Error happened while processing - trying no tonemaped command" >> $inputpath/conversionlog.txt
-					transcodetask=otherformat
-					runtranscode
-				fi
-			fi
-		fi
+	#		transcodetask=hdr
+	#		runtranscode
+			# If fail try to use no tonmap command
+			#if [ $exitcode -ne 0 ]; then
+			#	echo "- Error happened while processing - tying no tonemaped command" >> $inputpath/conversionlog.txt
+			#	transcodetask=otherformat
+			#	runtranscode
+			#fi
+	#	fi
+	# If no HDR found, check for H265
 	elif  echo "$ffprobeoutput" | grep codec_name | grep -qi "$unwanted265format" ; then
 		echo "- File is H265 " >> $inputpath/conversionlog.txt
 		crfcheck
-		if echo "$ffprobeoutput" | grep 'codec\|channel_layout' | grep -Eqi "$unwantedaudio" ; then
-			echo "- Processing H265 video + audio" >> $inputpath/conversionlog.txt
-			# Run ffmpeg command otherformataudio
-			transcodetask=otherformataudio
-			runtranscode
+		if echo "$ffprobeoutput" | grep -E 'codec|channel_layout' | grep -Eqi "$unwantedaudio" ; then
+			if [ "$gpuactive" -eq "0" ]; then
+				echo "- Processing H265 video + audio using CPU" >> $inputpath/conversionlog.txt
+				# Run ffmpeg command otherformataudio
+				transcodetask=otherformataudio
+				runtranscode
+			else
+				echo "- Processing H265 video + audio using GPU" >> $inputpath/conversionlog.txt
+				# Run ffmpeg command gpuotherformataudio
+				transcodetask=gpuotherformataudio
+				runtranscode
+			fi
 		else
-				echo "- Processing H265 video only" >> $inputpath/conversionlog.txt
-			# Run ffmpeg command otherformataudio
-			transcodetask=otherformat
-			runtranscode
+			if [ "$gpuactive" -eq "0" ]; then
+				echo "- Processing H265 video only using CPU" >> $inputpath/conversionlog.txt
+				# Run ffmpeg command otherformataudio
+				transcodetask=otherformat
+				runtranscode
+			else
+				echo "- Processing H265 video only using GPU" >> $inputpath/conversionlog.txt
+				# Run ffmpeg command gpuotherformat
+				transcodetask=gpuotherformat
+				runtranscode
+			fi
 		fi
-	# Check if profile is 10 bits - placed after HEVC detection to better know if it matches HEVC or H264 10 bits as HEVC 10 bits would match this.
+	# Check if profile is 10 bits - placed after HEVC detection to better know if it matches HEVC or H264 10 bits as HEVC 10 bits would match this aswell but may lose HDR infos
 	elif  echo "$ffprobeoutput" | grep profile | grep -Eqi "$unwanted264format" ; then
 		echo "- File is H264 10 bits" >> $inputpath/conversionlog.txt
-			crfcheck
+		crfcheck
 		if echo "$ffprobeoutput" | grep 'codec\|channel_layout' | grep -Eqi "$unwantedaudio" ; then
-			echo "- Processing 10 bits video + audio" >> $inputpath/conversionlog.txt
-			# Run ffmpeg command otherformataudio
-			transcodetask=otherformataudio
-			runtranscode			
+			if [ "$gpuactive" -eq "0" ]; then
+				echo "- Processing 10 bits video + audio using CPU" >> $inputpath/conversionlog.txt
+				# Run ffmpeg command otherformataudio
+				transcodetask=otherformataudio
+				runtranscode
+			else
+				echo "- Processing 10 bits video + audio using GPU" >> $inputpath/conversionlog.txt
+				# Run ffmpeg command gpuotherformataudio
+				transcodetask=gpuotherformataudio
+				runtranscode
+			fi
 		else
-				echo "- Processing 10 bits video video only" >> $inputpath/conversionlog.txt
-			# Run ffmpeg command otherformataudio
-			transcodetask=otherformat
-			runtranscode
+			if [ "$gpuactive" -eq "0" ]; then
+				echo "- Processing 10 bits video only using CPU" >> $inputpath/conversionlog.txt
+				# Run ffmpeg command otherformataudio
+				transcodetask=otherformat
+				runtranscode
+			else
+				echo "- Processing 10 bits video video only using GPU" >> $inputpath/conversionlog.txt
+				# Run ffmpeg command gpuotherformataudio
+				transcodetask=gpuotherformat
+				runtranscode
+			fi
 		fi
 	else
 		if echo "$ffprobeoutput" | grep 'codec\|channel_layout' | grep -Eqi "$unwantedaudio" ; then
