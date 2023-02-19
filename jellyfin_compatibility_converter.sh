@@ -213,9 +213,9 @@ $ffmpeg -i "$mkv" -y -c:v copy -map 0:v -map 0:a -map -0:a:$removeaudiotrackinde
 # run the transcode task If no output path is specified, replace the original file on conversion success
 runtranscode() {
 
-if echo "$mkv" | grep -Ewi "$ignore" ; then
-echo "- File is in ignore list $mkv" >> $inputpath/conversionlog.txt
-fi
+#if echo "$mkv" | grep -Ewi "$ignore" ; then
+#echo "- File is in ignore list $mkv" >> $inputpath/conversionlog.txt
+#fi
 
 if [ -z "$outputpath" ]; then
 	  echo "- No outputpath specified, file will be overwritten on success" >> $inputpath/conversionlog.txt
