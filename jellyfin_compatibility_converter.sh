@@ -66,20 +66,19 @@ unwantedcolormap="smpte2084|bt2020nc|bt2020"
 unwanted264format="10"
 unwanted265format="HEVC"
 unwantedvideorange="dovi"
-preset=slow 					# Use the slowest preset that you have patience for: ultrafast,superfastveryfast,faster,fast,medium,slow,veryslow,placebo
-tune=film  					# film,animation,grain,stillimage,fastdecode,zerolatency
-subme=9 					#1: Fastest - 2-5: Progressively better - 6-7: 6 is the defaul
-me_range=20 					# MErange controls the max range of the motion search - default of 16 - useful on HD footage and for high-motion footage
-aqmode=3
+preset=slow 						# Not used in GPU Decoding already set on "p1" - Use the slowest preset that you have patience for: ultrafast,superfastveryfast,faster,fast,medium,slow,veryslow,placebo
+tune=film  						# Not used in GPU Decoding - film,animation,grain,stillimage,fastdecode,zerolatency
+subme=9 						# Not used in GPU Decoding -1: Fastest - 2-5: Progressively better - 6-7: 6 is the defaul
+me_range=20 						# Not used in GPU Decoding - MErange controls the max range of the motion search - default of 16 - useful on HD footage and for high-motion footage
+aqmode=3						# Not used in GPU Decoding
 keyframes=1
 # ------------ CRF Mode -----------------
 bitrate=15022491				# typical values: bitrate 10014994 30044982 - maxrate 10014994 - bufsize 5007497
 maxrate=15022491 				# Default: 30044982
 bufsize=40059976				# Default: 40059976 / 2x bitrate
 setsize=30044982 				# File bigger will use crf_bigfile and smaller crf_smallfile
-crf_bigfile=24					# The range of the CRF scale is 0–51, where 0 is lossless
-crf_smallfile=22				# The range of the CRF scale is 0–51, where 0 is lossless
-
+crf_bigfile=24					# Not used in GPU Decoding - The range of the CRF scale is 0–51, where 0 is lossless
+crf_smallfile=22				# Not used in GPU Decoding - The range of the CRF scale is 0–51, where 0 is lossless
 #------------------- HDR Settings -------------------
 threshold=0.8 					# threshold is used to detect whether the scene has changed or not
 peak=100 					# Override signal/nominal/reference peak with this value
