@@ -52,6 +52,7 @@
 # 7.1 - Add option to remove language separatly from audio management, add a ingnore list
 # 7.2 - fix nvenc command
 # 7.3 - Ignore list now working
+# 7.4 - Check if file is in ignore list before anything else. Cleaner and faster
 
 # ------------- General Settings -------------------------
 inputpath="/media/movies"
@@ -212,23 +213,9 @@ $ffmpeg -i "$mkv" -y -c:v copy -map 0:v -map 0:a -map -0:a:$removeaudiotrackinde
 -f matroska "$outputpath/$outputfile"
 }
 
-# Check if file is in ignore list - if no list or if no match run the transcode
-runtranscode() {
-if [ -z "$ignore" ]; then
-	echo "- No ignored files configured" >> $inputpath/conversionlog.txt
-	transcode
-else
-	if echo "$mkv" | grep -Ewi "$ignore" ; then
-		echo "- File is in ignore list $ignore" >> $inputpath/conversionlog.txt
-	else
-		echo "- File is not in ignore list $ignore" >> $inputpath/conversionlog.txt
-		transcode
-	fi
-fi
-}
 
 # run the transcode task If no output path is specified, replace the original file on conversion success
-transcode() {
+runtranscode() {
 if [ -z "$outputpath" ]; then
 	  echo "- No outputpath specified, file will be overwritten on success" >> $inputpath/conversionlog.txt
       outputpath=$(dirname "$mkv")
@@ -314,6 +301,17 @@ echo "- Starting conversion of .mkv in $inputpath" >> $inputpath/conversionlog.t
 # Check if option has been passed, if none, run in default mode and look for HDR content in $inputpath - if fail, fallback to non-tonemaped encoder or check if h264 10 bits
 for mkv in `find $inputpath | grep .mkv | sort -h | head -n $entries`; do
 	echo "$mkv" >> $inputpath/conversionlog.txt
+	# Checking if file is in ignore list
+	if [ -z "$ignore" ]; then
+		echo "- No ignored files configured" >> $inputpath/conversionlog.txt
+	else
+		if echo "$mkv" | grep -Ewi "$ignore" ; then
+			echo "- File is in ignore list $ignore" >> $inputpath/conversionlog.txt
+			continue
+		else
+			echo "- File is not in ignore list $ignore" >> $inputpath/conversionlog.txt
+		fi
+	fi
 	filesize=$(ls -l "$mkv" | awk '{print $5}')
 	humanrdblfilesize=$(echo "$filesize" | numfmt --to=iec)
 	file=$(basename "$mkv")
