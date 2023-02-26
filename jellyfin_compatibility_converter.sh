@@ -51,6 +51,7 @@
 # 7.0 - Reworked script for better reading and add option for GPU x264 decoding
 # 7.1 - Add option to remove language separatly from audio management, add a ingnore list
 # 7.2 - fix nvenc command
+# 7.3 - Ignore list now working
 
 # ------------- General Settings -------------------------
 inputpath="/media/movies"
@@ -211,13 +212,23 @@ $ffmpeg -i "$mkv" -y -c:v copy -map 0:v -map 0:a -map -0:a:$removeaudiotrackinde
 -f matroska "$outputpath/$outputfile"
 }
 
-# run the transcode task If no output path is specified, replace the original file on conversion success
+# Check if file is in ignore list - if no list or if no match run the transcode
 runtranscode() {
+if [ -z "$ignore" ]; then
+	echo "- No ignored files configured" >> $inputpath/conversionlog.txt
+	transcode
+else
+	if echo "$mkv" | grep -Ewi "$ignore" ; then
+		echo "- File is in ignore list $ignore" >> $inputpath/conversionlog.txt
+	else
+		echo "- File is not in ignore list $ignore" >> $inputpath/conversionlog.txt
+		transcode
+	fi
+fi
+}
 
-#if echo "$mkv" | grep -Ewi "$ignore" ; then
-#echo "- File is in ignore list $mkv" >> $inputpath/conversionlog.txt
-#fi
-
+# run the transcode task If no output path is specified, replace the original file on conversion success
+transcode() {
 if [ -z "$outputpath" ]; then
 	  echo "- No outputpath specified, file will be overwritten on success" >> $inputpath/conversionlog.txt
       outputpath=$(dirname "$mkv")
