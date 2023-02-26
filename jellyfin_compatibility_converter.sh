@@ -67,10 +67,9 @@ unwantedcolormap="smpte2084|bt2020nc|bt2020"
 unwanted264format="10"
 unwanted265format="HEVC"
 unwantedvideorange="dovi"
-preset=slow 						# Not used in GPU Decoding already set on "p1" - Use the slowest preset that you have patience for: ultrafast,superfastveryfast,faster,fast,medium,slow,veryslow,placebo
-tune=film  						# Not used in GPU Decoding - film,animation,grain,stillimage,fastdecode,zerolatency
+preset=slow 					# Not used in GPU Decoding already set on "p1" - Use the slowest preset that you have patience for: ultrafast,superfastveryfast,faster,fast,medium,slow,veryslow,placebo
 subme=9 						# Not used in GPU Decoding -1: Fastest - 2-5: Progressively better - 6-7: 6 is the defaul
-me_range=20 						# Not used in GPU Decoding - MErange controls the max range of the motion search - default of 16 - useful on HD footage and for high-motion footage
+me_range=20 					# Not used in GPU Decoding - MErange controls the max range of the motion search - default of 16 - useful on HD footage and for high-motion footage
 aqmode=3						# Not used in GPU Decoding
 keyframes=1
 # ------------ CRF Mode -----------------
@@ -78,8 +77,8 @@ bitrate=15022491				# typical values: bitrate 10014994 30044982 - maxrate 100149
 maxrate=15022491 				# Default: 30044982
 bufsize=40059976				# Default: 40059976 / 2x bitrate
 setsize=30044982 				# File bigger will use crf_bigfile and smaller crf_smallfile
-crf_bigfile=24					# Not used in GPU Decoding - The range of the CRF scale is 0–51, where 0 is lossless
-crf_smallfile=22				# Not used in GPU Decoding - The range of the CRF scale is 0–51, where 0 is lossless
+crf_bigfile=24					# The range of the CRF scale is 0–51, where 0 is lossless - 19 is visually identical to 0
+crf_smallfile=22				# The range of the CRF scale is 0–51, where 0 is lossless - 19 is visually identical to 0
 #------------------- HDR Settings -------------------
 threshold=0.8 					# threshold is used to detect whether the scene has changed or not
 peak=100 					# Override signal/nominal/reference peak with this value
@@ -107,7 +106,7 @@ $ffmpeg -init_hw_device cuda=cu:0 \
 -filter_hw_device cu -hwaccel nvdec -hwaccel_output_format cuda \
 -i "$mkv" -y -threads 0 \
 -map 0:v:0 -codec:v:0 libx264 -pix_fmt yuv420p \
--preset p1 -b:v $bitrate -maxrate $maxrate -bufsize $bufsize \
+-preset p1 -cq:v $crf -b:v $bitrate -maxrate $maxrate -bufsize $bufsize \
 -profile:v:0 high -level 51 -force_key_frames:0 "expr:gte(t,0+n_forced*$keyframes)" \
 -vf "hwupload=derive_device=cuda,tonemap_cuda=format=yuv420p:p=bt709:t=bt709:m=bt709:tonemap=hable:peak=$peak:desat=$desat:threshold=$threshold,hwdownload"  -avoid_negative_ts disabled -max_muxing_queue_size 9999 \
 -c:a copy -map 0:a \
@@ -118,23 +117,23 @@ $ffmpeg -init_hw_device cuda=cu:0 \
 # GPU - Convert H265 HDR to X264 with tonemap and convert audio to AAC 6 channels
 hdraudio() {
 $ffmpeg -init_hw_device cuda=cu:0 \
- -filter_hw_device cu -hwaccel cuda -hwaccel_output_format cuda \
- -i "$mkv" -y -threads 0 \
- -map 0:v:0 -codec:v:0 libx264 -pix_fmt yuv420p \
- -preset p1 -b:v $bitrate -maxrate $maxrate -bufsize $bufsize \
- -profile:v:0 high -level 51 -force_key_frames:0 "expr:gte(t,0+n_forced*$keyframes)" \
- -vf "hwupload=derive_device=cuda,tonemap_cuda=format=yuv420p:p=bt709:t=bt709:m=bt709:tonemap=hable:peak=$peak:desat=$desat:threshold=$threshold,hwdownload" \
- -avoid_negative_ts disabled -max_muxing_queue_size 9999 \
- -c:a $targetaudioformat -ac 6 -ab $audiobitrate -map 0:a \
- -c:s copy -map 0:s? \
- -movflags -use_metadata_tags -metadata title="$filename - HDR tonemap script from youtube.com/tontonjo" -metadata:s:v:0 title="Tonemaped" \
- -f matroska "$outputpath/$outputfile"
+-filter_hw_device cu -hwaccel cuda -hwaccel_output_format cuda \
+-i "$mkv" -y -threads 0 \
+-map 0:v:0 -codec:v:0 libx264 -pix_fmt yuv420p \
+-preset p1 -cq:v $crf -b:v $bitrate -maxrate $maxrate -bufsize $bufsize \
+-profile:v:0 high -level 51 -force_key_frames:0 "expr:gte(t,0+n_forced*$keyframes)" \
+-vf "hwupload=derive_device=cuda,tonemap_cuda=format=yuv420p:p=bt709:t=bt709:m=bt709:tonemap=hable:peak=$peak:desat=$desat:threshold=$threshold,hwdownload" \
+-avoid_negative_ts disabled -max_muxing_queue_size 9999 \
+-c:a $targetaudioformat -ac 6 -ab $audiobitrate -map 0:a \
+-c:s copy -map 0:s? \
+-movflags -use_metadata_tags -metadata title="$filename - HDR tonemap script from youtube.com/tontonjo" -metadata:s:v:0 title="Tonemaped" \
+-f matroska "$outputpath/$outputfile"
 }
 # CPU - Convert other format to h264
 otherformat() {
 $ffmpeg -i "$mkv" -y -threads 0 \
 -map 0:v:0 -codec:v:0 libx264 -pix_fmt yuv420p \
--preset $preset -tune $tune -crf $crf -aq-mode $aqmode  -b:v $bitrate -maxrate $maxrate -bufsize $bufsize \
+-preset $preset -tune film -crf $crf -aq-mode $aqmode  -b:v $bitrate -maxrate $maxrate -bufsize $bufsize \
 -profile:v:0 high -level 51 -x264opts:0 subme=$subme:me_range=$merange:rc_lookahead=10:me=dia:no_chroma_me:8x8dct=0:partitions=none -force_key_frames:0 "expr:gte(t,0+n_forced*$keyframes)" \
 -vf "setparams=color_primaries=bt709:color_trc=bt709:colorspace=bt709" -avoid_negative_ts disabled -max_muxing_queue_size 9999 \
 -c:a copy -map 0:a \
@@ -147,7 +146,7 @@ gpuotherformat() {
 $ffmpeg -init_hw_device cuda=cu:0 -filter_hw_device cu -hwaccel cuda -hwaccel_output_format cuda -threads 1 \
 -i "$mkv" -y \
 -map 0:v:0 -codec:v:0 h264_nvenc \
--preset p1 -b:v $bitrate -maxrate $maxrate -bufsize $bufsize \
+-preset p1 -cq:v $crf -b:v $bitrate -maxrate $maxrate -bufsize $bufsize \
 -profile:v:0 high -level 51 -force_key_frames:0 "expr:gte(t,0+n_forced*$keyframes)" \
 -vf "setparams=color_primaries=bt709:color_trc=bt709:colorspace=bt709,scale_cuda=format=yuv420p" -avoid_negative_ts disabled -max_muxing_queue_size 9999 \
 -c:a copy -map 0:a \
@@ -158,7 +157,7 @@ $ffmpeg -init_hw_device cuda=cu:0 -filter_hw_device cu -hwaccel cuda -hwaccel_ou
 # CPU - Convert other format to h264 and convert audio to AAC 6 channels
 otherformataudio() {
 $ffmpeg -i "$mkv" -y -threads 0 -map 0:v:0 -codec:v:0 libx264 -pix_fmt yuv420p \
--preset $preset -tune $tune -crf $crf -aq-mode $aqmode  -b:v $bitrate -maxrate $maxrate -bufsize $bufsize \
+-preset $preset -tune film -crf $crf -aq-mode $aqmode  -b:v $bitrate -maxrate $maxrate -bufsize $bufsize \
 -profile:v:0 high -level 51 -x264opts:0 subme=$subme:me_range=$merange:rc_lookahead=10:me=dia:no_chroma_me:8x8dct=0:partitions=none  -force_key_frames:0 "expr:gte(t,0+n_forced*$keyframes)" \
 -vf "setparams=color_primaries=bt709:color_trc=bt709:colorspace=bt709" -avoid_negative_ts disabled -max_muxing_queue_size 9999 \
 -c:a $targetaudioformat -ac 6 -ab $audiobitrate -map 0:a \
@@ -172,7 +171,7 @@ gpuotherformataudio() {
 $ffmpeg -init_hw_device cuda=cu:0 -filter_hw_device cu -hwaccel cuda -hwaccel_output_format cuda -threads 1 \
 -i "$mkv" -y \
 -map 0:v:0 -codec:v:0 h264_nvenc \
--preset p1 -b:v $bitrate -maxrate $maxrate -bufsize $bufsize \
+-preset p1 -cq:v $crf -b:v $bitrate -maxrate $maxrate -bufsize $bufsize \
 -profile:v:0 high -level 51 -force_key_frames:0 "expr:gte(t,0+n_forced*$keyframes)" \
 -vf "setparams=color_primaries=bt709:color_trc=bt709:colorspace=bt709,scale_cuda=format=yuv420p" -avoid_negative_ts disabled -max_muxing_queue_size 9999 \
 -c:a $targetaudioformat -ac 6 -ab $audiobitrate -map 0:a \
@@ -213,7 +212,6 @@ $ffmpeg -i "$mkv" -y -c:v copy -map 0:v -map 0:a -map -0:a:$removeaudiotrackinde
 -c:s copy -map 0:s? \
 -f matroska "$outputpath/$outputfile"
 }
-
 
 # run the transcode task If no output path is specified, replace the original file on conversion success
 runtranscode() {
