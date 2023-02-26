@@ -50,6 +50,7 @@
 # 6.2 - fix audio - add cancelation of transcode if dovi is found
 # 7.0 - Reworked script for better reading and add option for GPU x264 decoding
 # 7.1 - Add option to remove language separatly from audio management, add a ingnore list
+# 7.2 - fix nvenc command
 
 # ------------- General Settings -------------------------
 inputpath="/media/movies"
@@ -144,10 +145,10 @@ $ffmpeg -i "$mkv" -y -threads 0 \
 gpuotherformat() {
 $ffmpeg -init_hw_device cuda=cu:0 -filter_hw_device cu -hwaccel cuda -hwaccel_output_format cuda -threads 1 \
 -i "$mkv" -y \
--map 0:v:0 -codec:v:0 h264_nvenc -pix_fmt yuv420p \
+-map 0:v:0 -codec:v:0 h264_nvenc \
 -preset $preset -crf $crf -aq-mode $aqmode  -b:v $bitrate -maxrate $maxrate -bufsize $bufsize \
 -profile:v:0 high -level 51 -x264opts:0 subme=$subme:me_range=$merange:rc_lookahead=10:me=dia:no_chroma_me:8x8dct=0:partitions=none -force_key_frames:0 "expr:gte(t,0+n_forced*$keyframes)" \
--vf "hwdownload,format=nv12,setparams=color_primaries=bt709:color_trc=bt709:colorspace=bt709" -avoid_negative_ts disabled -max_muxing_queue_size 9999 \
+-vf "setparams=color_primaries=bt709:color_trc=bt709:colorspace=bt709,scale_cuda=format=yuv420p" -avoid_negative_ts disabled -max_muxing_queue_size 9999 \
 -c:a copy -map 0:a \
 -c:s copy -map 0:s? \
 -movflags -use_metadata_tags -metadata title="$filename - Conversion script from youtube.com/tontonjo" -metadata:s:v:0 title=" " \
@@ -168,11 +169,11 @@ $ffmpeg -i "$mkv" -y -threads 0 -map 0:v:0 -codec:v:0 libx264 -pix_fmt yuv420p \
 # GPU - Convert other format to h264 and convert audio to AAC 6 channels
 gpuotherformataudio() {
 $ffmpeg -init_hw_device cuda=cu:0 -filter_hw_device cu -hwaccel cuda -hwaccel_output_format cuda -threads 1 \
--i "$mkv" -y -threads 0 \
--map 0:v:0 -codec:v:0 h264_nvenc -pix_fmt yuv420p \
+-i "$mkv" -y \
+-map 0:v:0 -codec:v:0 h264_nvenc \
 -preset p1 -crf $crf -aq-mode $aqmode  -b:v $bitrate -maxrate $maxrate -bufsize $bufsize \
 -profile:v:0 high -level 51 -x264opts:0 subme=$subme:me_range=$merange:rc_lookahead=10:me=dia:no_chroma_me:8x8dct=0:partitions=none  -force_key_frames:0 "expr:gte(t,0+n_forced*$keyframes)" \
--vf "hwdownload,format=nv12,setparams=color_primaries=bt709:color_trc=bt709:colorspace=bt709" -avoid_negative_ts disabled -max_muxing_queue_size 9999 \
+-vf "setparams=color_primaries=bt709:color_trc=bt709:colorspace=bt709,scale_cuda=format=yuv420p" -avoid_negative_ts disabled -max_muxing_queue_size 9999 \
 -c:a $targetaudioformat -ac 6 -ab $audiobitrate -map 0:a \
 -c:s copy -map 0:s? \
 -movflags -use_metadata_tags -metadata title="$filename - Conversion script from youtube.com/tontonjo" -metadata:s:v:0 title=" " \
