@@ -15,8 +15,10 @@
 ### Prerequisits:
 This script is intended to be executed from Jellyfin but should work with every ffmpeg installation
 - ffmpeg  
-- A working GPU decoding setup in jellyfin for HDR conversion
+- A working GPU decoding setup if you want GPU transcode
 - - Install needed dependencies IN container to have tonemap  
+
+### enable tonemap capability for GPU:
 ```shell
 docker exec -it $jellyfin bash
 ```  
@@ -28,17 +30,14 @@ aptitude install nvidia-opencl-icd
 ```
 
 ### Usage:  
-It will look in $inputpath for HDR content and convert them to x264 SDR to $outputpath  
-Executing the script like this works but is not perfect - suggestions welcome!
-
+It will look in $inputpath for MKV movies and convert them to x264 SDR to $outputpath
+I recommand using tmux to start process
 - Put script in a jellyfin container accessible folder
-- Edit the configuration in the script - for more informations about settings: https://trac.ffmpeg.org/wiki/Encode/H.264
-- - Input path - script will recurse if there are subfolders
-- - Outputpath - Where to put converter files - set another path than input
-- - CRF - The range of the CRF scale is 0–51, where 0 is lossless
-- - Preset - Use the slowest preset that you have patience for: ultrafast,superfastveryfast,faster,fast,medium,slow,slower,veryslow,placebo
-- - Tune - film,animation,grain,stillimage,fastdecode,zerolatency 
-- - MaxRate - target bitrate in bps
+- If no outputpath is specified, original file will be overwritten
+- You can set a maximum amount of files to process
+- Use arguments to process only video or audio
+- Specify a blacklist
+
 - Make it executable 
 ```shell
 docker exec $jellyfin chmod +x /path/to/HDRtoSDR_converter.sh
@@ -46,7 +45,7 @@ docker exec $jellyfin chmod +x /path/to/HDRtoSDR_converter.sh
 - Run it
 - - Connect into container
 ```shell
-docker exec -it $jellyfin bash
+docker exec -u root:users -it $jellyfin bash
 ```
 - - Run for every movie in $inputpath
 ```shell
@@ -57,8 +56,6 @@ bash /path/to/HDRtoSDR_converter.sh
 bash /path/to/HDRtoSDR_converter.sh /path/to/movie.mkv
 ```
 
-### Known problems:  
-- When cancelling process, worker still continue in container - help and infos welcome!
 
 ## compatibility_checker.sh
 ### Want to know what files contains not well supported format by jellyfin? Here you go
