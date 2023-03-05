@@ -3,12 +3,12 @@
 # Tonton Jo - 2023
 # Join me on Youtube: https://www.youtube.com/c/tontonjo
 
-# This scripts aim to convert all vidéos in MKV format in the best supported one in jellyfin: h264 with AAC Audio to avoid transcoding
+# This scripts aim to convert all vidéos in MKV format in the best supported one in jellyfin: h264 with AAC Audio 5.1 to avoid transcoding as much as possible
 # It will look in $inputpath for content and convert them to x264 SDR to $outputpath
 
 # Prerequisits:
 # A working GPU decoding setup in jellyfin if you want to enable GPU
-# Install needed dependencies to have tonemap
+# Install needed dependencies to have tonemap and uncomment needed section
 # echo "deb http://deb.debian.org/debian buster-backports main contrib non-free" >> /etc/apt/sources.list
 # apt-get update
 # apt-get install aptitude
@@ -17,8 +17,9 @@
 # Usage:
 # Put script in a jellyfin container accessible folder
 # Edit the configuration in the script - for more informations about settings: https://trac.ffmpeg.org/wiki/Encode/H.264
-# make it executable "docker exec jellyfin chmod +x /media/HDRtoSDR_converter.sh"
-# run it executable "docker exec jellyfin /media/HDRtoSDR_converter.sh"
+# Connect yourself into container
+# Run the script 
+
 # arguments:
 # none: automatically process video: hdr and vidéo + audio if needed
 # -video	: Only convert video
