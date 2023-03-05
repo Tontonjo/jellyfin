@@ -78,8 +78,8 @@ bitrate=15022491				# typical values: bitrate 10014994 30044982 - maxrate 100149
 maxrate=15022491 				# Default: 30044982
 bufsize=40059976				# Default: 40059976 / 2x bitrate
 setsize=30044982 				# File bigger will use crf_bigfile and smaller crf_smallfile
-crf_bigfile=24					# The range of the CRF scale is 0–51, where 0 is lossless - 19 is visually identical to 0
-crf_smallfile=22				# The range of the CRF scale is 0–51, where 0 is lossless - 19 is visually identical to 0
+crf_bigfile=24					# Jellyfin recommand value between 18 to 28 - The range of the CRF scale is 0–51, where 0 is lossless - 19 is visually identical to 0
+crf_smallfile=22				# Jellyfin recommand value between 18 to 28 - The range of the CRF scale is 0–51, where 0 is lossless - 19 is visually identical to 0
 #------------------- HDR Settings -------------------
 threshold=0.8 					# threshold is used to detect whether the scene has changed or not
 peak=100 					# Override signal/nominal/reference peak with this value
