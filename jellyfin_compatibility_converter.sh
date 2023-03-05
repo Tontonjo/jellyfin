@@ -55,6 +55,7 @@
 # 7.3 - Ignore list now working
 # 7.4 - Check if file is in ignore list before anything else. Cleaner and faster
 # 7.5 - Remove useless options from GPU trancode tasks - various fixes and corrections
+# 7.6 - Already a fix for hdr content - As colors may be faded out without HDR , we will bypass hdr files for now.
 
 # ------------- General Settings -------------------------
 inputpath="/media/movies"
@@ -103,13 +104,13 @@ IFS=$'\n'
 
 # GPU - Convert H265 HDR to X264 with tonemap
 hdr() {
-$ffmpeg -init_hw_device cuda=cu:0 \
--filter_hw_device cu -hwaccel nvdec -hwaccel_output_format cuda \
--i "$mkv" -y -threads 0 \
--map 0:v:0 -codec:v:0 libx264 -pix_fmt yuv420p \
--preset p1 -cq:v $crf -b:v $bitrate -maxrate $maxrate -bufsize $bufsize \
+$ffmpeg -init_hw_device cuda=cu:0 -filter_hw_device cu -hwaccel cuda -hwaccel_output_format cuda -threads 1 \
+-i "$mkv" -y \
+-map 0:v:0 -codec:v:0 h264_nvenc -pix_fmt yuv420p \
+-preset $preset -b:v $bitrate -maxrate $maxrate -bufsize $bufsize \
 -profile:v:0 high -level 51 -force_key_frames:0 "expr:gte(t,0+n_forced*$keyframes)" \
--vf "hwupload=derive_device=cuda,tonemap_cuda=format=yuv420p:p=bt709:t=bt709:m=bt709:tonemap=hable:peak=$peak:desat=$desat:threshold=$threshold,hwdownload"  -avoid_negative_ts disabled -max_muxing_queue_size 9999 \
+-vf "hwupload=derive_device=cuda,tonemap_cuda=format=yuv420p:p=bt709:t=bt709:m=bt709:tonemap=hable:peak=$peak:desat=$desat:threshold=$threshold,hwdownload" \
+-avoid_negative_ts disabled -max_muxing_queue_size 9999 \
 -c:a copy -map 0:a \
 -c:s copy -map 0:s? \
 -movflags -use_metadata_tags -metadata title="$filename - HDR tonemap script from youtube.com/tontonjo" -metadata:s:v:0 title="Tonemaped" \
@@ -117,11 +118,10 @@ $ffmpeg -init_hw_device cuda=cu:0 \
 }
 # GPU - Convert H265 HDR to X264 with tonemap and convert audio to AAC 6 channels
 hdraudio() {
-$ffmpeg -init_hw_device cuda=cu:0 \
--filter_hw_device cu -hwaccel cuda -hwaccel_output_format cuda \
--i "$mkv" -y -threads 0 \
--map 0:v:0 -codec:v:0 libx264 -pix_fmt yuv420p \
--preset p1 -cq:v $crf -b:v $bitrate -maxrate $maxrate -bufsize $bufsize \
+$ffmpeg -init_hw_device cuda=cu:0 -filter_hw_device cu -hwaccel cuda -hwaccel_output_format cuda -threads 1 \
+-i "$mkv" -y \
+-map 0:v:0 -codec:v:0 h264_nvenc -pix_fmt yuv420p \
+-preset $preset -b:v $bitrate -maxrate $maxrate -bufsize $bufsize \
 -profile:v:0 high -level 51 -force_key_frames:0 "expr:gte(t,0+n_forced*$keyframes)" \
 -vf "hwupload=derive_device=cuda,tonemap_cuda=format=yuv420p:p=bt709:t=bt709:m=bt709:tonemap=hable:peak=$peak:desat=$desat:threshold=$threshold,hwdownload" \
 -avoid_negative_ts disabled -max_muxing_queue_size 9999 \
@@ -346,31 +346,38 @@ for mkv in `find $inputpath | grep .mkv | sort -h | head -n $entries`; do
 		runtranscode
 		
 	# If no option set - entering auto mode: check HDR: if fail try to normal transcode - if audio is equal to $unwantedaudio - transcode audio aswell
-	#
-	#	crfcheck
-	#	if echo "$ffprobeoutput" | grep 'codec\|channel_layout' | grep -Eqi "$unwantedaudio" ; then
-	#		echo "- Processing HDR video + audio" >> $inputpath/conversionlog.txt
-			# Run ffmpeg command hdraudio
-	#		transcodetask=hdraudio
-	#		runtranscode
-			# If fail try to use no tonmap command
+	elif echo "$ffprobeoutput" | grep -Eqi "$unwantedcolormap" ; then
+		if echo "$ffprobeoutput" | grep 'codec\|channel_layout' | grep -Eqi "$unwantedaudio" ; then
+			echo "- Bypassing HDR video + audio" >> $inputpath/conversionlog.txt
+			continue
+			#echo "- Processing HDR video + audio" >> $inputpath/conversionlog.txt
+			## Run ffmpeg command hdraudio
+			#transcodetask=hdraudio
+			#crfcheck
+			#runtranscode
+			## If fail try to use no tonmap command
 			#if [ $exitcode -ne 0 ]; then
 			#	echo "- Trying no tonemaped command" >> $inputpath/conversionlog.txt
 			#	transcodetask=otherformataudio
+			#	crfcheck
 			#	runtranscode
 			#fi
-	#	else
-	#		echo "- Processing HDR video only" >> $inputpath/conversionlog.txt
-			# Run ffmpeg command hdr
-	#		transcodetask=hdr
-	#		runtranscode
-			# If fail try to use no tonmap command
+		else	
+			echo "- Bypassing HDR video + audio" >> $inputpath/conversionlog.txt
+			continue
+			#echo "- Processing HDR video only" >> $inputpath/conversionlog.txt
+			## Run ffmpeg command hdr
+			#transcodetask=hdr
+			#crfcheck
+			#runtranscode
+			## If fail try to use no tonmap command
 			#if [ $exitcode -ne 0 ]; then
 			#	echo "- Error happened while processing - tying no tonemaped command" >> $inputpath/conversionlog.txt
 			#	transcodetask=otherformat
+			#	crfcheck
 			#	runtranscode
 			#fi
-	#	fi
+		fi
 	# If no HDR found, check for H265
 	elif  echo "$ffprobeoutput" | grep codec_name | grep -qi "$unwanted265format" ; then
 		echo "- File is H265 " >> $inputpath/conversionlog.txt
