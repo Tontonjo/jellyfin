@@ -22,10 +22,11 @@
 
 # arguments:
 # none: automatically process video: hdr and vidéo + audio if needed
-# -video	: Only convert video
-# -audio	: Only convert audio to specified format
-# -r		: Rename video track with the filename
-# -smooth	: upgrade vidéo to 60 FPS using tblend
+# -video		: Only convert video
+# -audio		: Only convert audio to specified format
+# -r			: Rename video track with the filename
+# -smooth		: upgrade vidéo to 60 FPS using tblend
+# -force-video		: Automatic mode, but will forcfully convert files already in h264 codec
 
 # Sources: 
 # HDR tonemap: all credits to Jellyfin https://github.com/jellyfin/jellyfin
@@ -56,12 +57,14 @@
 # 7.4 - Check if file is in ignore list before anything else. Cleaner and faster
 # 7.5 - Remove useless options from GPU trancode tasks - various fixes and corrections
 # 7.6 - Already a fix for hdr content - As colors may be faded out without HDR , we will bypass hdr files for now.
+# 7.7 - Add -force-video to forcefully re-encode video to reduce file size to a defined bitrate
+# 7.8 - simplify bitrate settings - add 2 differente bitrate for 4k and 1080p to allow bigger resolutions video to have bigger bitrates
 
 # ------------- General Settings -------------------------
 inputpath="/media/movies"
-outputpath=""			# Leave this empty to overwrite the original file when transcode was sucessfull
-entries=9999			# number of movies to process - set to a number higher than the number of entries in library to process everything, like 9999999 :-)
-ignore=""	# Work in progress - List of file, names or folder to ignore
+outputpath=""					# Leave this empty to overwrite the original file when transcode was sucessfull
+entries=9999					# number of movies to process - set to a number higher than the number of entries in library to process everything, like 9999999 :-)
+ignore=""					# Work in progress - List of file, names or folder to ignore
 # ------------- GPU Mode Settings -------------------------
 gpuactive=1
 # ------------- Video Settings -------------------------
@@ -70,21 +73,21 @@ unwanted264format="10"
 unwanted265format="HEVC"
 unwantedvideorange="dovi"
 preset=slow 					# Not used in GPU Decoding already set on "p1" - Use the slowest preset that you have patience for: ultrafast,superfastveryfast,faster,fast,medium,slow,veryslow,placebo
-subme=9 						# Not used in GPU Decoding -1: Fastest - 2-5: Progressively better - 6-7: 6 is the defaul
+subme=9 					# Not used in GPU Decoding -1: Fastest - 2-5: Progressively better - 6-7: 6 is the defaul
 me_range=20 					# Not used in GPU Decoding - MErange controls the max range of the motion search - default of 16 - useful on HD footage and for high-motion footage
-aqmode=3						# Not used in GPU Decoding
+aqmode=3					# Not used in GPU Decoding
 keyframes=1
-# ------------ CRF Mode -----------------
-bitrate=15022491				# typical values: bitrate 10014994 30044982 - maxrate 10014994 - bufsize 5007497
-maxrate=15022491 				# Default: 30044982
-bufsize=40059976				# Default: 40059976 / 2x bitrate
+# ------------ Quality settings -----------------
+bitratefhd=9000000				# Used for ref for -force-video and to encode  - Used as maxrate and doubled for bufsize - typical values: bitrate 10014994 30044982
+bitrate4k=15000000				# Used for ref for -force-video and to encode  - Used as maxrate and doubled for bufsize - typical values: bitrate 10014994 30044982
 setsize=30044982 				# File bigger will use crf_bigfile and smaller crf_smallfile
-crf_bigfile=24					# Jellyfin recommand value between 18 to 28 - The range of the CRF scale is 0–51, where 0 is lossless - 19 is visually identical to 0
-crf_smallfile=22				# Jellyfin recommand value between 18 to 28 - The range of the CRF scale is 0–51, where 0 is lossless - 19 is visually identical to 0
+crf_bigfile=20					# Jellyfin recommand value between 18 to 28 - The range of the CRF scale is 0–51, where 0 is lossless - 19 is visually identical to 0
+crf_smallfile=18				# Jellyfin recommand value between 18 to 28 - The range of the CRF scale is 0–51, where 0 is lossless - 19 is visually identical to 0
+diffratio=1.2					# Files under this ratio wont be converted when using -force-video cause it may be worthless depending on settings
 #------------------- HDR Settings -------------------
 threshold=0.8 					# threshold is used to detect whether the scene has changed or not
 peak=100 					# Override signal/nominal/reference peak with this value
-desat=2.0 					# Apply desaturation for highlights that exceed this level of brightness - default of 2.0 - Jelly = 0
+desat=0		 				# Apply desaturation for highlights that exceed this level of brightness - default of 2.0 - Jelly = 0
 # --------------- Audio Settings -------------------
 unwantedaudio="dts|ac3|opus|unknown"
 neededlanguage="vff"		# https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes
@@ -104,7 +107,7 @@ IFS=$'\n'
 
 # GPU - Convert H265 HDR to X264 with tonemap
 hdr() {
-$ffmpeg -init_hw_device cuda=cu:0 -filter_hw_device cu -hwaccel cuda -hwaccel_output_format cuda -threads 1 \
+$ffmpeg -loglevel quiet -stats -init_hw_device cuda=cu:0 -filter_hw_device cu -hwaccel cuda -hwaccel_output_format cuda -threads 0 \
 -i "$mkv" -y \
 -map 0:v:0 -codec:v:0 h264_nvenc -pix_fmt yuv420p \
 -preset $preset -b:v $bitrate -maxrate $maxrate -bufsize $bufsize \
@@ -118,9 +121,9 @@ $ffmpeg -init_hw_device cuda=cu:0 -filter_hw_device cu -hwaccel cuda -hwaccel_ou
 }
 # GPU - Convert H265 HDR to X264 with tonemap and convert audio to AAC 6 channels
 hdraudio() {
-$ffmpeg -init_hw_device cuda=cu:0 -filter_hw_device cu -hwaccel cuda -hwaccel_output_format cuda -threads 1 \
+$ffmpeg -loglevel quiet -stats -init_hw_device cuda=cu:0 -filter_hw_device cu -hwaccel cuda -hwaccel_output_format cuda -threads 0 \
 -i "$mkv" -y \
--map 0:v:0 -codec:v:0 h264_nvenc -pix_fmt yuv420p \
+-map 0:v:0 -codec:v:0 h264_nvenc -pix_fmt yuv420p -threads 0 \
 -preset $preset -b:v $bitrate -maxrate $maxrate -bufsize $bufsize \
 -profile:v:0 high -level 51 -force_key_frames:0 "expr:gte(t,0+n_forced*$keyframes)" \
 -vf "hwupload=derive_device=cuda,tonemap_cuda=format=yuv420p:p=bt709:t=bt709:m=bt709:tonemap=hable:peak=$peak:desat=$desat:threshold=$threshold,hwdownload" \
@@ -132,7 +135,7 @@ $ffmpeg -init_hw_device cuda=cu:0 -filter_hw_device cu -hwaccel cuda -hwaccel_ou
 }
 # CPU - Convert other format to h264
 otherformat() {
-$ffmpeg -i "$mkv" -y -threads 0 \
+$ffmpeg -loglevel quiet -stats -i "$mkv" -y -threads 0 \
 -map 0:v:0 -codec:v:0 libx264 -pix_fmt yuv420p \
 -preset $preset -tune film -crf $crf -aq-mode $aqmode  -b:v $bitrate -maxrate $maxrate -bufsize $bufsize \
 -profile:v:0 high -level 51 -x264opts:0 subme=$subme:me_range=$merange:rc_lookahead=10:me=dia:no_chroma_me:8x8dct=0:partitions=none -force_key_frames:0 "expr:gte(t,0+n_forced*$keyframes)" \
@@ -144,7 +147,7 @@ $ffmpeg -i "$mkv" -y -threads 0 \
 }
 # GPU - Convert other format to h264
 gpuotherformat() {
-$ffmpeg -init_hw_device cuda=cu:0 -filter_hw_device cu -hwaccel cuda -hwaccel_output_format cuda -threads 1 \
+$ffmpeg -loglevel quiet -stats -init_hw_device cuda=cu:0 -filter_hw_device cu -hwaccel cuda -hwaccel_output_format cuda -threads 0 \
 -i "$mkv" -y \
 -map 0:v:0 -codec:v:0 h264_nvenc \
 -preset p1 -cq:v $crf -b:v $bitrate -maxrate $maxrate -bufsize $bufsize \
@@ -157,7 +160,7 @@ $ffmpeg -init_hw_device cuda=cu:0 -filter_hw_device cu -hwaccel cuda -hwaccel_ou
 }
 # CPU - Convert other format to h264 and convert audio to AAC 6 channels
 otherformataudio() {
-$ffmpeg -i "$mkv" -y -threads 0 -map 0:v:0 -codec:v:0 libx264 -pix_fmt yuv420p \
+$ffmpeg -loglevel quiet -stats -i "$mkv" -y -threads 0 -map 0:v:0 -codec:v:0 libx264 -pix_fmt yuv420p \
 -preset $preset -tune film -crf $crf -aq-mode $aqmode  -b:v $bitrate -maxrate $maxrate -bufsize $bufsize \
 -profile:v:0 high -level 51 -x264opts:0 subme=$subme:me_range=$merange:rc_lookahead=10:me=dia:no_chroma_me:8x8dct=0:partitions=none  -force_key_frames:0 "expr:gte(t,0+n_forced*$keyframes)" \
 -vf "setparams=color_primaries=bt709:color_trc=bt709:colorspace=bt709" -avoid_negative_ts disabled -max_muxing_queue_size 9999 \
@@ -169,7 +172,7 @@ $ffmpeg -i "$mkv" -y -threads 0 -map 0:v:0 -codec:v:0 libx264 -pix_fmt yuv420p \
 
 # GPU - Convert other format to h264 and convert audio to AAC 6 channels
 gpuotherformataudio() {
-$ffmpeg -init_hw_device cuda=cu:0 -filter_hw_device cu -hwaccel cuda -hwaccel_output_format cuda -threads 1 \
+$ffmpeg -loglevel quiet -stats -init_hw_device cuda=cu:0 -filter_hw_device cu -hwaccel cuda -hwaccel_output_format cuda -threads 0 \
 -i "$mkv" -y \
 -map 0:v:0 -codec:v:0 h264_nvenc \
 -preset p1 -cq:v $crf -b:v $bitrate -maxrate $maxrate -bufsize $bufsize \
@@ -183,7 +186,7 @@ $ffmpeg -init_hw_device cuda=cu:0 -filter_hw_device cu -hwaccel cuda -hwaccel_ou
 
 # CPU - Convert audio only
 audioonly() {
-$ffmpeg -i "$mkv"  -y -c:v copy -map 0:v -map 0:a \
+$ffmpeg -loglevel quiet -stats -i "$mkv"  -y -c:v copy -map 0:v -map 0:a -threads 0 \
 -c:a $targetaudioformat -ac 6 -ab $audiobitrate -max_muxing_queue_size 9999 \
 -c:s copy -map 0:s? \
 -movflags -use_metadata_tags -metadata title="$filename - Conversion script from youtube.com/tontonjo" -metadata:s:v:0 title=" " \
@@ -192,7 +195,7 @@ $ffmpeg -i "$mkv"  -y -c:v copy -map 0:v -map 0:a \
 # CPU - Smooth video using minterpolate (fast but not very efficient)
 smooth() {
 # https://blog.programster.org/ffmpeg-create-smooth-videos-with-frame-interpolation
-$ffmpeg -i "$mkv" -y -threads 0 -map 0:v:0 \
+$ffmpeg -loglevel quiet -stats -i "$mkv" -y -threads 0 -map 0:v:0 \
 -vf "minterpolate=fps=60:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1" \
 -c:a copy -map 0:a \
 -c:s copy -map 0:s? \
@@ -200,7 +203,7 @@ $ffmpeg -i "$mkv" -y -threads 0 -map 0:v:0 \
 }
 # CPU - Just rename the MKV title metadata using the filename
 rename() {
-$ffmpeg -i "$mkv" -c:v copy -map 0:v \
+$ffmpeg -loglevel quiet -stats -i "$mkv" -c:v copy -map 0:v -threads 0 \
 -c:a copy -map 0:a \
 -c:s copy -map 0:s \
 -movflags -use_metadata_tags -metadata title="$filename" \
@@ -208,7 +211,8 @@ $ffmpeg -i "$mkv" -c:v copy -map 0:v \
 }
 # CPU - alpha: remove unwanted language, 1 at a time
 unwanted_language() {
-$ffmpeg -i "$mkv" -y -c:v copy -map 0:v -map 0:a -map -0:a:$removeaudiotrackindex \
+$ffmpeg -loglevel quiet -stats -i "$mkv" -y -threads 0 \
+-c:v copy -map 0:v -map 0:a -map -0:a:$removeaudiotrackindex \
 -c:a $targetaudioformat -ac 6 -ab $audiobitrate -max_muxing_queue_size 9999 \
 -c:s copy -map 0:s? \
 -f matroska "$outputpath/$outputfile"
@@ -292,6 +296,15 @@ audio() {
 				echo "- No conversion needed" >> $inputpath/conversionlog.txt 
 		fi
 }
+if  [[ $1 = "-force-video" ]]; then
+	if [ $(dpkg-query -W -f='${Status}' bc 2>/dev/null | grep -c "ok installed") -eq 0 ]; then
+	echo "- bc needed - installing"
+	apt-get update -y -qq
+	apt-get install -y bc;
+else
+	echo "- bc already installed"
+	fi
+fi
 
 echo "----- Tonton Jo - 2022 -----" > $inputpath/conversionlog.txt
 echo "------- Job of $date -------" >> $inputpath/conversionlog.txt
@@ -301,11 +314,12 @@ echo "- Starting conversion of .mkv in $inputpath" >> $inputpath/conversionlog.t
 # Check if option has been passed, if none, run in default mode and look for HDR content in $inputpath - if fail, fallback to non-tonemaped encoder or check if h264 10 bits
 for mkv in `find $inputpath | grep .mkv | sort -h | head -n $entries`; do
 	echo "$mkv" >> $inputpath/conversionlog.txt
+	echo "- Processing $mkv"
 	# Checking if file is in ignore list
 	if [ -z "$ignore" ]; then
 		echo "- No ignored files configured" >> $inputpath/conversionlog.txt
 	else
-		if echo "$mkv" | grep -Ewi "$ignore" ; then
+		if echo "$mkv" | grep -Eqwi "$ignore" ; then
 			echo "- File is in ignore list $ignore" >> $inputpath/conversionlog.txt
 			continue
 		else
@@ -316,9 +330,21 @@ for mkv in `find $inputpath | grep .mkv | sort -h | head -n $entries`; do
 	humanrdblfilesize=$(echo "$filesize" | numfmt --to=iec)
 	file=$(basename "$mkv")
 	filename=${file::-4}
-	ffprobeoutput=$($ffprobe -show_streams "$mkv")
+	ffprobeoutput=$($ffprobe -hide_banner -show_streams "$mkv"  2>&1)
+	resolution=$($ffprobe -hide_banner -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 "$mkv" 2>&1)
+	# If resolution is smaller than 1920 use bitratefhd else use 4k
+	if (( $(echo "$resolution > 1920") )); then
+		echo "- Video is bigger than full HD - using $bitrate4k bps bitrate" >> $inputpath/conversionlog.txt
+		bitrate="$bitrate4k"
+	else
+		echo "- Video is equal or smaller than full HD - using $bitratefhd bps bitrate" >> $inputpath/conversionlog.txt
+		bitrate="$bitratefhd"
+	fi
+	# Set maxrate and bufsize
+	maxrate="$bitrate"
+	bufsize=$(($bitrate * 2))
 	if echo "$ffprobeoutput" | grep -Eqi "$unwantedvideorange" ; then
-		echo "$mkv - Found unwanted video range ($unwantedvideorange) that cannot be converted atm - continuing" >> $inputpath/checklog.txt
+		echo "$mkv - Found unwanted video range ($unwantedvideorange) that cannot be converted atm - continuing" >> $inputpath/conversionlog.txt
 		continue
 	elif  [[ $1 = "-smooth" ]]; then 
 		# raise framerate of input to 60 fps
@@ -348,6 +374,7 @@ for mkv in `find $inputpath | grep .mkv | sort -h | head -n $entries`; do
 	# If no option set - entering auto mode: check HDR: if fail try to normal transcode - if audio is equal to $unwantedaudio - transcode audio aswell
 	elif echo "$ffprobeoutput" | grep -Eqi "$unwantedcolormap" ; then
 		if echo "$ffprobeoutput" | grep 'codec\|channel_layout' | grep -Eqi "$unwantedaudio" ; then
+			# If you want to enable HDR Conversion (wich may break colors) delete the 2 "continue"  and uncomment lines with a single # under
 			echo "- Bypassing HDR video + audio" >> $inputpath/conversionlog.txt
 			continue
 			#echo "- Processing HDR video + audio" >> $inputpath/conversionlog.txt
@@ -435,6 +462,29 @@ for mkv in `find $inputpath | grep .mkv | sort -h | head -n $entries`; do
 				transcodetask=gpuotherformat
 				runtranscode
 			fi
+		fi
+	# Flag to force transcode even if not needed for h264 - usefull to reduce size of big h264 files to $bitrate
+	elif  [[ $1 = "-force-video" ]]; then
+		# Get file bitrate using ffprobe the convert kbps to bps in order to match bitrate variable range - file has to be $diffratio times bigger than $bitrate to trigger
+		filebitrate=$(echo "$ffprobeoutput" | grep "Duration" | awk '{print $6 * 1000}')
+		filebitrateratio=$(echo "scale=2; $filebitrate / $bitrate" | bc)
+		if (( $(echo "$filebitrateratio > $diffratio" | bc -l) )); then
+			crfcheck
+			echo "- File has a bitrate of: $filebitrate bps" >> $inputpath/conversionlog.txt
+			if [ "$gpuactive" -eq "0" ]; then
+					echo "- File has $filebitrateratio ratio - Forced processing video only using CPU" >> $inputpath/conversionlog.txt
+					# Run ffmpeg command otherformataudio
+					transcodetask=otherformat
+					runtranscode
+			else
+					echo "- File has $filebitrateratio ratio - Forced processing video only using GPU" >> $inputpath/conversionlog.txt
+					# Run ffmpeg command gpuotherformataudio
+					transcodetask=gpuotherformat
+					runtranscode
+			fi
+		else
+			echo "- File has $filebitrateratio ratio - not converting" >> $inputpath/conversionlog.txt
+			continue
 		fi
 	else
 		if echo "$ffprobeoutput" | grep 'codec\|channel_layout' | grep -Eqi "$unwantedaudio" ; then
