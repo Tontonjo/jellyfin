@@ -59,7 +59,8 @@
 # 7.6 - Already a fix for hdr content - As colors may be faded out without HDR , we will bypass hdr files for now.
 # 7.7 - Add -force-video to forcefully re-encode video to reduce file size to a defined bitrate
 # 7.8 - simplify bitrate settings - add 2 differente bitrate for 4k and 1080p to allow bigger resolutions video to have bigger bitrates
-# 7.9 - Add audio check when processing with -force-video flag - add su access check before installing missing bin
+# 7.9 - Add audio check when processing with -force-video flag
+# 8.0 - Fix resolution detection in some cases - Add some error management
 
 # ------------- General Settings -------------------------
 inputpath="/media/movies"
@@ -334,7 +335,7 @@ for mkv in `find $inputpath | grep .mkv | sort -h | head -n $entries`; do
 	file=$(basename "$mkv")
 	filename=${file::-4}
 	ffprobeoutput=$($ffprobe -hide_banner -show_streams "$mkv"  2>&1)
-	resolution=$($ffprobe -hide_banner -v error -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 "$mkv" 2>&1)
+	resolution=$($ffprobe -hide_banner -v quiet -select_streams v:0 -show_entries stream=width -of default=nw=1:nk=1 "$mkv" 2>&1)
 	# If resolution is smaller than 1920 use bitratefhd else use 4k
 	if (( $(echo "$resolution > 1920") )); then
 		echo "- Video is bigger than full HD - using $bitrate4k bps bitrate" >> $inputpath/conversionlog.txt
@@ -471,6 +472,11 @@ for mkv in `find $inputpath | grep .mkv | sort -h | head -n $entries`; do
 		# Get file bitrate using ffprobe the convert kbps to bps in order to match bitrate variable range - file has to be $diffratio times bigger than $bitrate to trigger
 		filebitrate=$(echo "$ffprobeoutput" | grep "Duration" | awk '{print $6 * 1000}')
 		filebitrateratio=$(echo "scale=2; $filebitrate / $bitrate" | bc)
+		exitcode=$?
+		if [ $exitcode -ne 0 ]; then
+			echo "- Error happened while processing - original file not replaced" >> $inputpath/conversionlog.txt
+			continue
+		fi
 		if (( $(echo "$filebitrateratio > $diffratio" | bc -l) )); then
 			crfcheck
 			if echo "$ffprobeoutput" | grep 'codec\|channel_layout' | grep -Eqi "$unwantedaudio" ; then
