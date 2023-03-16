@@ -59,6 +59,7 @@
 # 7.6 - Already a fix for hdr content - As colors may be faded out without HDR , we will bypass hdr files for now.
 # 7.7 - Add -force-video to forcefully re-encode video to reduce file size to a defined bitrate
 # 7.8 - simplify bitrate settings - add 2 differente bitrate for 4k and 1080p to allow bigger resolutions video to have bigger bitrates
+# 7.9 - Add audio check when processing with -force-video flag - add su access check before installing missing bin
 
 # ------------- General Settings -------------------------
 inputpath="/media/movies"
@@ -66,7 +67,7 @@ outputpath=""					# Leave this empty to overwrite the original file when transco
 entries=9999					# number of movies to process - set to a number higher than the number of entries in library to process everything, like 9999999 :-)
 ignore=""					# Work in progress - List of file, names or folder to ignore
 # ------------- GPU Mode Settings -------------------------
-gpuactive=1
+gpuactive=0
 # ------------- Video Settings -------------------------
 unwantedcolormap="smpte2084|bt2020nc|bt2020"
 unwanted264format="10"
@@ -83,7 +84,7 @@ bitrate4k=15000000				# Used for ref for -force-video and to encode  - Used as m
 setsize=30044982 				# File bigger will use crf_bigfile and smaller crf_smallfile
 crf_bigfile=20					# Jellyfin recommand value between 18 to 28 - The range of the CRF scale is 0–51, where 0 is lossless - 19 is visually identical to 0
 crf_smallfile=18				# Jellyfin recommand value between 18 to 28 - The range of the CRF scale is 0–51, where 0 is lossless - 19 is visually identical to 0
-diffratio=1.2					# Files under this ratio wont be converted when using -force-video cause it may be worthless depending on settings
+diffratio=1.3					# Files under this ratio wont be converted when using -force-video cause it may be worthless depending on settings
 #------------------- HDR Settings -------------------
 threshold=0.8 					# threshold is used to detect whether the scene has changed or not
 peak=100 					# Override signal/nominal/reference peak with this value
@@ -297,6 +298,8 @@ audio() {
 		fi
 }
 if  [[ $1 = "-force-video" ]]; then
+	# check if root
+	if [[ $(id -u) -ne 0 ]] ; then echo "- Please run as root / sudo" ; exit 1 ; fi
 	if [ $(dpkg-query -W -f='${Status}' bc 2>/dev/null | grep -c "ok installed") -eq 0 ]; then
 	echo "- bc needed - installing"
 	apt-get update -y -qq
@@ -470,17 +473,33 @@ for mkv in `find $inputpath | grep .mkv | sort -h | head -n $entries`; do
 		filebitrateratio=$(echo "scale=2; $filebitrate / $bitrate" | bc)
 		if (( $(echo "$filebitrateratio > $diffratio" | bc -l) )); then
 			crfcheck
-			echo "- File has a bitrate of: $filebitrate bps" >> $inputpath/conversionlog.txt
-			if [ "$gpuactive" -eq "0" ]; then
-					echo "- File has $filebitrateratio ratio - Forced processing video only using CPU" >> $inputpath/conversionlog.txt
-					# Run ffmpeg command otherformataudio
-					transcodetask=otherformat
-					runtranscode
+			if echo "$ffprobeoutput" | grep 'codec\|channel_layout' | grep -Eqi "$unwantedaudio" ; then
+				echo "- File has a bitrate of: $filebitrate bps and unwanted audio format" >> $inputpath/conversionlog.txt
+				if [ "$gpuactive" -eq "0" ]; then
+						echo "- File has $filebitrateratio ratio - Forced processing video + audio only using CPU" >> $inputpath/conversionlog.txt
+						# Run ffmpeg command otherformataudio
+						transcodetask=otherformataudio
+						runtranscode
+				else
+						echo "- File has $filebitrateratio ratio - Forced processing video + audio only using GPU" >> $inputpath/conversionlog.txt
+						# Run ffmpeg command gpuotherformataudio
+						transcodetask=gpuotherformataudio
+						runtranscode
+				fi
 			else
-					echo "- File has $filebitrateratio ratio - Forced processing video only using GPU" >> $inputpath/conversionlog.txt
-					# Run ffmpeg command gpuotherformataudio
-					transcodetask=gpuotherformat
-					runtranscode
+				echo "- File has a bitrate of: $filebitrate bps" >> $inputpath/conversionlog.txt
+				if [ "$gpuactive" -eq "0" ]; then
+						echo "- File has $filebitrateratio ratio - Forced processing video only using CPU" >> $inputpath/conversionlog.txt
+						# Run ffmpeg command otherformataudio
+						transcodetask=otherformat
+						runtranscode
+				else
+						echo "- File has $filebitrateratio ratio - Forced processing video only using GPU" >> $inputpath/conversionlog.txt
+						# Run ffmpeg command gpuotherformataudio
+						transcodetask=gpuotherformat
+						runtranscode
+				fi
+
 			fi
 		else
 			echo "- File has $filebitrateratio ratio - not converting" >> $inputpath/conversionlog.txt
