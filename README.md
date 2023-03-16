@@ -40,7 +40,7 @@ I recommand using tmux to start process
 
 - Make it executable 
 ```shell
-docker exec $jellyfin chmod +x /path/to/HDRtoSDR_converter.sh
+docker exec $jellyfin chmod +x jellyfin_compatibility_converter.sh
 ```
 - Run it
 - - Connect into container
@@ -49,11 +49,7 @@ docker exec -u root:users -it $jellyfin bash
 ```
 - - Run for every movie in $inputpath
 ```shell
-bash /path/to/HDRtoSDR_converter.sh
-```
-- - Run it for a single movie 
-```shell
-bash /path/to/HDRtoSDR_converter.sh /path/to/movie.mkv
+bash jellyfin_compatibility_converter.sh
 ```
 
 
