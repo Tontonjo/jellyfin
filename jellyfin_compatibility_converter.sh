@@ -60,7 +60,10 @@
 # 7.7 - Add -force-video to forcefully re-encode video to reduce file size to a defined bitrate
 # 7.8 - simplify bitrate settings - add 2 differente bitrate for 4k and 1080p to allow bigger resolutions video to have bigger bitrates
 # 7.9 - Add audio check when processing with -force-video flag
-# 8.0 - Fix resolution detection in some cases - Add some error management
+# 8.0 - Add some error management
+# 8.1 - Fix resolution detection in some cases
+# 8.2 - Fix Process order to ensure every automatic check is done before checking for special flags
+
 
 # ------------- General Settings -------------------------
 inputpath="/media/movies"
@@ -467,7 +470,12 @@ for mkv in `find $inputpath | grep .mkv | sort -h | head -n $entries`; do
 				runtranscode
 			fi
 		fi
-	# Flag to force transcode even if not needed for h264 - usefull to reduce size of big h264 files to $bitrate
+	elif echo "$ffprobeoutput" | grep 'codec\|channel_layout' | grep -Eqi "$unwantedaudio" ; then
+			echo "- Processing audio only" >> $inputpath/conversionlog.txt
+			# Run ffmpeg command audioonly
+			transcodetask=audioonly
+			runtranscode
+			# Flag to force transcode even if not needed for h264 - usefull to reduce size of big h264 files to $bitrate
 	elif  [[ $1 = "-force-video" ]]; then
 		# Get file bitrate using ffprobe the convert kbps to bps in order to match bitrate variable range - file has to be $diffratio times bigger than $bitrate to trigger
 		filebitrate=$(echo "$ffprobeoutput" | grep "Duration" | awk '{print $6 * 1000}')
@@ -479,20 +487,6 @@ for mkv in `find $inputpath | grep .mkv | sort -h | head -n $entries`; do
 		fi
 		if (( $(echo "$filebitrateratio > $diffratio" | bc -l) )); then
 			crfcheck
-			if echo "$ffprobeoutput" | grep 'codec\|channel_layout' | grep -Eqi "$unwantedaudio" ; then
-				echo "- File has a bitrate of: $filebitrate bps and unwanted audio format" >> $inputpath/conversionlog.txt
-				if [ "$gpuactive" -eq "0" ]; then
-						echo "- File has $filebitrateratio ratio - Forced processing video + audio only using CPU" >> $inputpath/conversionlog.txt
-						# Run ffmpeg command otherformataudio
-						transcodetask=otherformataudio
-						runtranscode
-				else
-						echo "- File has $filebitrateratio ratio - Forced processing video + audio only using GPU" >> $inputpath/conversionlog.txt
-						# Run ffmpeg command gpuotherformataudio
-						transcodetask=gpuotherformataudio
-						runtranscode
-				fi
-			else
 				echo "- File has a bitrate of: $filebitrate bps" >> $inputpath/conversionlog.txt
 				if [ "$gpuactive" -eq "0" ]; then
 						echo "- File has $filebitrateratio ratio - Forced processing video only using CPU" >> $inputpath/conversionlog.txt
@@ -505,22 +499,12 @@ for mkv in `find $inputpath | grep .mkv | sort -h | head -n $entries`; do
 						transcodetask=gpuotherformat
 						runtranscode
 				fi
-
-			fi
 		else
 			echo "- File has $filebitrateratio ratio - not converting" >> $inputpath/conversionlog.txt
 			continue
 		fi
 	else
-		if echo "$ffprobeoutput" | grep 'codec\|channel_layout' | grep -Eqi "$unwantedaudio" ; then
-			echo "- Processing audio only" >> $inputpath/conversionlog.txt
-			# Run ffmpeg command audioonly
-			transcodetask=audioonly
-			runtranscode
-		else
-			echo "- No conversion needed" >> $inputpath/conversionlog.txt
-		fi
-
+		echo "- No conversion needed" >> $inputpath/conversionlog.txt
 	fi
 	done
 echo "Conversion ended!" >> $inputpath/conversionlog.txt
