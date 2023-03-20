@@ -86,7 +86,7 @@ keyframes=1
 # ------------ Quality settings -----------------
 bitratefhd=9000000				# Used for ref for -force-video and to encode  - Used as maxrate and doubled for bufsize - typical values: bitrate 10014994 30044982
 bitrate4k=15000000				# Used for ref for -force-video and to encode  - Used as maxrate and doubled for bufsize - typical values: bitrate 10014994 30044982
-bufsizemultiplier=3				# Bufsize will be set to x times the bitrate set - smaller value means better respect of wanted bitrate, resulting in higher quality loss aswell :)
+bufsizemultiplier=2				# Bufsize will be set to x times the bitrate set - smaller value means better respect of wanted bitrate, resulting in higher quality loss aswell :)
 setsize=30044982 				# File bigger will use crf_bigfile and smaller crf_smallfile
 crf_bigfile=20					# Jellyfin recommand value between 18 to 28 - The range of the CRF scale is 0–51, where 0 is lossless - 19 is visually identical to 0
 crf_smallfile=18				# Jellyfin recommand value between 18 to 28 - The range of the CRF scale is 0–51, where 0 is lossless - 19 is visually identical to 0
