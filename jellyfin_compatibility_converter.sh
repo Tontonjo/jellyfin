@@ -64,7 +64,7 @@
 # 8.1 - Fix resolution detection in some cases
 # 8.2 - Fix Process order to ensure every automatic check is done before checking for special flags
 # 8.3 - Add bufsize multiplier. cant be lower than 1x the bitrate
-
+# 8.4 - Add detection for Interlaced videos and convert to progressive format - Black magic: conversion has to sometimes be done 2 times - dont ask why.
 
 # ------------- General Settings -------------------------
 inputpath="/media/movies"
@@ -72,21 +72,22 @@ outputpath=""					# Leave this empty to overwrite the original file when transco
 entries=9999					# number of movies to process - set to a number higher than the number of entries in library to process everything, like 9999999 :-)
 ignore=""					# Work in progress - List of file, names or folder to ignore
 # ------------- GPU Mode Settings -------------------------
-gpuactive=0
+gpuactive=1
 # ------------- Video Settings -------------------------
 unwantedcolormap="smpte2084|bt2020nc|bt2020"
 unwanted264format="10"
 unwanted265format="HEVC"
 unwantedvideorange="dovi"
-preset=slow 					# Not used in GPU Decoding already set on "p1" - Use the slowest preset that you have patience for: ultrafast,superfastveryfast,faster,fast,medium,slow,veryslow,placebo
-subme=9 					# Not used in GPU Decoding -1: Fastest - 2-5: Progressively better - 6-7: 6 is the defaul
-me_range=20 					# Not used in GPU Decoding - MErange controls the max range of the motion search - default of 16 - useful on HD footage and for high-motion footage
-aqmode=3					# Not used in GPU Decoding
+unwantedfieldorder="tt|tb|bb|bt" 	# Thoses identifies Interlaced videos https://ffmpeg.org/ffprobe-all.html
+preset=slow 						# Not used in GPU Decoding already set on "p1" - Use the slowest preset that you have patience for: ultrafast,superfastveryfast,faster,fast,medium,slow,veryslow,placebo
+subme=9 							# Not used in GPU Decoding -1: Fastest - 2-5: Progressively better - 6-7: 6 is the defaul
+me_range=20 						# Not used in GPU Decoding - MErange controls the max range of the motion search - default of 16 - useful on HD footage and for high-motion footage
+aqmode=3							# Not used in GPU Decoding
 keyframes=1
 # ------------ Quality settings -----------------
 bitratefhd=9000000				# Used for ref for -force-video and to encode  - Used as maxrate and doubled for bufsize - typical values: bitrate 10014994 30044982
 bitrate4k=15000000				# Used for ref for -force-video and to encode  - Used as maxrate and doubled for bufsize - typical values: bitrate 10014994 30044982
-bufsizemultiplier=2				# Bufsize will be set to x times the bitrate set - smaller value means better respect of wanted bitrate, resulting in higher quality loss aswell :)
+bufsizemultiplier=3				# Bufsize will be set to x times the bitrate set - smaller value means better respect of wanted bitrate, resulting in higher quality loss aswell :)
 setsize=30044982 				# File bigger will use crf_bigfile and smaller crf_smallfile
 crf_bigfile=20					# Jellyfin recommand value between 18 to 28 - The range of the CRF scale is 0–51, where 0 is lossless - 19 is visually identical to 0
 crf_smallfile=18				# Jellyfin recommand value between 18 to 28 - The range of the CRF scale is 0–51, where 0 is lossless - 19 is visually identical to 0
@@ -114,7 +115,7 @@ IFS=$'\n'
 
 # GPU - Convert H265 HDR to X264 with tonemap
 hdr() {
-$ffmpeg -loglevel quiet -stats -init_hw_device cuda=cu:0 -filter_hw_device cu -hwaccel cuda -hwaccel_output_format cuda -threads 0 \
+$ffmpeg -loglevel quiet -stats -field_order progressive -init_hw_device cuda=cu:0 -filter_hw_device cu -hwaccel cuda -hwaccel_output_format cuda -threads 0 \
 -i "$mkv" -y \
 -map 0:v:0 -codec:v:0 h264_nvenc -pix_fmt yuv420p \
 -preset $preset -b:v $bitrate -maxrate $maxrate -bufsize $bufsize \
@@ -202,7 +203,7 @@ $ffmpeg -loglevel quiet -stats -i "$mkv"  -y -c:v copy -map 0:v -map 0:a -thread
 # CPU - Smooth video using minterpolate (fast but not very efficient)
 smooth() {
 # https://blog.programster.org/ffmpeg-create-smooth-videos-with-frame-interpolation
-$ffmpeg -loglevel quiet -stats -i "$mkv" -y -threads 0 -map 0:v:0 \
+$ffmpeg -loglevel quiet -stats -field_order progressive -i "$mkv" -y -threads 0 -map 0:v:0 \
 -vf "minterpolate=fps=60:mi_mode=mci:mc_mode=aobmc:me_mode=bidir:vsbmc=1" \
 -c:a copy -map 0:a \
 -c:s copy -map 0:s? \
@@ -224,6 +225,21 @@ $ffmpeg -loglevel quiet -stats -i "$mkv" -y -threads 0 \
 -c:s copy -map 0:s? \
 -f matroska "$outputpath/$outputfile"
 }
+interlaced() {
+			crfcheck
+			echo "- File is interlaced - converting to progressive" >> $inputpath/conversionlog.txt
+			if [ "$gpuactive" -eq "0" ]; then
+				echo "- Processing interlaced video using CPU" >> $inputpath/conversionlog.txt
+				# Run ffmpeg command otherformataudio
+				transcodetask=otherformat
+				runtranscode
+			else
+				echo "- Processing interlaced video using GPU" >> $inputpath/conversionlog.txt
+				# Run ffmpeg command gpuotherformataudio
+				transcodetask=gpuotherformat
+				runtranscode
+			fi
+}
 
 # run the transcode task If no output path is specified, replace the original file on conversion success
 runtranscode() {
@@ -244,6 +260,7 @@ if [ -z "$outputpath" ]; then
 			echo "- Original filesize:  $humanrdblfilesize" >> $inputpath/conversionlog.txt
 			echo "- New filesize:		$humanrdblnewfilesize" >> $inputpath/conversionlog.txt
 		fi
+		
 		# unset outputpath in order to redifine $outputpath for every file
 		unset outputpath
 else
@@ -261,6 +278,17 @@ else
 		echo "- Convertion ended successfully" >> $inputpath/conversionlog.txt
 		echo "- Original filesize:  $humanrdblfilesize" >> $inputpath/conversionlog.txt
 		echo "- New filesize:		$humanrdblnewfilesize" >> $inputpath/conversionlog.txt
+	fi
+fi
+# Dont understand well yet, but interlaced TT files have to be processed 2 times to become "progressive"
+if [ "$interlaced" -eq "1" ]; then
+	# Update ffprobe output
+	ffprobeoutput=$($ffprobe -hide_banner -show_streams "$mkv"  2>&1)
+	if echo "$ffprobeoutput" | grep 'field_order' | grep -Eqi "$unwantedfieldorder" ; then
+		echo "- File is still not Progressive"
+		interlaced
+	else
+		echo "- File is now Progressive" >> $inputpath/conversionlog.txt
 	fi
 fi
 }
@@ -416,6 +444,10 @@ for mkv in `find $inputpath | grep .mkv | sort -h | head -n $entries`; do
 		fi
 	# If no HDR found, check for H265
 	elif  echo "$ffprobeoutput" | grep codec_name | grep -qi "$unwanted265format" ; then
+		if echo "$ffprobeoutput" | grep 'field_order' | grep -Eqi "$unwantedfieldorder" ; then
+		echo "- File is interlaced"
+		interlaced=1
+		fi
 		echo "- File is H265 " >> $inputpath/conversionlog.txt
 		crfcheck
 		if echo "$ffprobeoutput" | grep -E 'codec|channel_layout' | grep -Eqi "$unwantedaudio" ; then
@@ -445,6 +477,10 @@ for mkv in `find $inputpath | grep .mkv | sort -h | head -n $entries`; do
 		fi
 	# Check if profile is 10 bits - placed after HEVC detection to better know if it matches HEVC or H264 10 bits as HEVC 10 bits would match this aswell but may lose HDR infos
 	elif  echo "$ffprobeoutput" | grep profile | grep -Eqi "$unwanted264format" ; then
+		if echo "$ffprobeoutput" | grep 'field_order' | grep -Eqi "$unwantedfieldorder" ; then
+		echo "- File is interlaced"
+		interlaced=1
+		fi
 		echo "- File is H264 10 bits" >> $inputpath/conversionlog.txt
 		crfcheck
 		if echo "$ffprobeoutput" | grep 'codec\|channel_layout' | grep -Eqi "$unwantedaudio" ; then
@@ -472,6 +508,9 @@ for mkv in `find $inputpath | grep .mkv | sort -h | head -n $entries`; do
 				runtranscode
 			fi
 		fi
+	elif echo "$ffprobeoutput" | grep 'field_order' | grep -Eqi "$unwantedfieldorder" ; then
+		interlaced=1
+		interlaced
 	elif echo "$ffprobeoutput" | grep 'codec\|channel_layout' | grep -Eqi "$unwantedaudio" ; then
 			echo "- Processing audio only" >> $inputpath/conversionlog.txt
 			# Run ffmpeg command audioonly
