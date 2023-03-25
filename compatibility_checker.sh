@@ -19,6 +19,7 @@
 # 1.1 - Sort alphabetically 
 # 1.2 - correction to use ffmpeg echo and ensure grep is for codecs
 # 2.0 - added dovi unsupported format wich may cause ffmpeg to hang
+# 2.1 - Add check for progressive files
 
 
 # ------------- Settings -------------------------
@@ -30,6 +31,7 @@ unwanted265format="HEVC"
 unwanted264format="10"
 unwantedaudio="dts|ac3"
 unwantedcolormap="smpte2084|bt2020nc|bt2020"
+unwantedfieldorder="tt|tb|bb|bt" 		# Thoses identifies Interlaced videos https://ffmpeg.org/ffprobe-all.html
 
 # ---------- END OF SETTINGS ---------------------
 
@@ -58,6 +60,9 @@ echo "- Starting Check of .mkv in $inputpath" >> $inputpath/checklog.txt
 		fi
 	elif echo "$ffprobeoutput" | grep profile | grep -Eqi "$unwanted264format" ; then
 			echo "$mkv - Unwanted format ($unwanted264format)" >> $inputpath/checklog.txt 
+	fi
+	if echo "$ffprobeoutput" | grep 'field_order' | grep -Eqi "$unwantedfieldorder" ; then
+		echo "$mkv - File is interlaced" >> $inputpath/checklog.txt
 	fi
 	if  [[ $1 = "--ignore-sub" ]]; then
 	echo "- Ignoring sub check"
