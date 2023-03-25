@@ -20,7 +20,7 @@
 # 1.2 - correction to use ffmpeg echo and ensure grep is for codecs
 # 2.0 - added dovi unsupported format wich may cause ffmpeg to hang
 # 2.1 - Add check for progressive files
-
+# 2.2 - less noisy output :)
 
 # ------------- Settings -------------------------
 inputpath=/media/films
@@ -48,8 +48,9 @@ echo "- Starting Check of .mkv in $inputpath" >> $inputpath/checklog.txt
 
 	for mkv in `find $inputpath | sort -h | grep .mkv`
 	do
+	echo "- Checking $mkv"
 	echo "------------ $mkv ----------------" >> $inputpath/checklog.txt
-	ffprobeoutput=$($ffprobe -show_streams "$mkv")
+	ffprobeoutput=$($ffprobe -hide_banner -show_streams "$mkv"  2>&1)
 	if echo "$ffprobeoutput" | grep -Eqi "$unwantedvideorange" ; then
 		echo "$mkv - Found unwanted video range (unwantedvideorange)" >> $inputpath/checklog.txt
 	fi
