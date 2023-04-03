@@ -65,6 +65,7 @@
 # 8.2 - Fix Process order to ensure every automatic check is done before checking for special flags
 # 8.3 - Add bufsize multiplier. cant be lower than 1x the bitrate
 # 8.4 - Add detection for Interlaced videos and convert to progressive format - Black magic: conversion has to sometimes be done 2 times - dont ask why.
+# 8.5 - Removed encoder level wich is usless and may cause problem for no reasons
 
 # ------------- General Settings -------------------------
 inputpath="/media/movies"
@@ -119,7 +120,7 @@ $ffmpeg -loglevel quiet -stats -field_order progressive -init_hw_device cuda=cu:
 -i "$mkv" -y \
 -map 0:v:0 -codec:v:0 h264_nvenc -pix_fmt yuv420p \
 -preset $preset -b:v $bitrate -maxrate $maxrate -bufsize $bufsize \
--profile:v:0 high -level 51 -force_key_frames:0 "expr:gte(t,0+n_forced*$keyframes)" \
+-profile:v:0 high -force_key_frames:0 "expr:gte(t,0+n_forced*$keyframes)" \
 -vf "hwupload=derive_device=cuda,tonemap_cuda=format=yuv420p:p=bt709:t=bt709:m=bt709:tonemap=hable:peak=$peak:desat=$desat:threshold=$threshold,hwdownload" \
 -avoid_negative_ts disabled -max_muxing_queue_size 9999 \
 -c:a copy -map 0:a \
@@ -133,7 +134,7 @@ $ffmpeg -loglevel quiet -stats -init_hw_device cuda=cu:0 -filter_hw_device cu -h
 -i "$mkv" -y \
 -map 0:v:0 -codec:v:0 h264_nvenc -pix_fmt yuv420p -threads 0 \
 -preset $preset -b:v $bitrate -maxrate $maxrate -bufsize $bufsize \
--profile:v:0 high -level 51 -force_key_frames:0 "expr:gte(t,0+n_forced*$keyframes)" \
+-profile:v:0 high -force_key_frames:0 "expr:gte(t,0+n_forced*$keyframes)" \
 -vf "hwupload=derive_device=cuda,tonemap_cuda=format=yuv420p:p=bt709:t=bt709:m=bt709:tonemap=hable:peak=$peak:desat=$desat:threshold=$threshold,hwdownload" \
 -avoid_negative_ts disabled -max_muxing_queue_size 9999 \
 -c:a $targetaudioformat -ac 6 -ab $audiobitrate -map 0:a \
@@ -146,7 +147,7 @@ otherformat() {
 $ffmpeg -loglevel quiet -stats -i "$mkv" -y -threads 0 \
 -map 0:v:0 -codec:v:0 libx264 -pix_fmt yuv420p \
 -preset $preset -tune film -crf $crf -aq-mode $aqmode  -b:v $bitrate -maxrate $maxrate -bufsize $bufsize \
--profile:v:0 high -level 51 -x264opts:0 subme=$subme:me_range=$merange:rc_lookahead=10:me=dia:no_chroma_me:8x8dct=0:partitions=none -force_key_frames:0 "expr:gte(t,0+n_forced*$keyframes)" \
+-profile:v:0 high -x264opts:0 subme=$subme:me_range=$merange:rc_lookahead=10:me=dia:no_chroma_me:8x8dct=0:partitions=none -force_key_frames:0 "expr:gte(t,0+n_forced*$keyframes)" \
 -vf "setparams=color_primaries=bt709:color_trc=bt709:colorspace=bt709" -avoid_negative_ts disabled -max_muxing_queue_size 9999 \
 -c:a copy -map 0:a \
 -c:s copy -map 0:s? \
@@ -159,7 +160,7 @@ $ffmpeg -loglevel quiet -stats -init_hw_device cuda=cu:0 -filter_hw_device cu -h
 -i "$mkv" -y \
 -map 0:v:0 -codec:v:0 h264_nvenc \
 -preset p1 -cq:v $crf -b:v $bitrate -maxrate $maxrate -bufsize $bufsize \
--profile:v:0 high -level 51 -force_key_frames:0 "expr:gte(t,0+n_forced*$keyframes)" \
+-profile:v:0 high -force_key_frames:0 "expr:gte(t,0+n_forced*$keyframes)" \
 -vf "setparams=color_primaries=bt709:color_trc=bt709:colorspace=bt709,scale_cuda=format=yuv420p" -avoid_negative_ts disabled -max_muxing_queue_size 9999 \
 -c:a copy -map 0:a \
 -c:s copy -map 0:s? \
@@ -170,7 +171,7 @@ $ffmpeg -loglevel quiet -stats -init_hw_device cuda=cu:0 -filter_hw_device cu -h
 otherformataudio() {
 $ffmpeg -loglevel quiet -stats -i "$mkv" -y -threads 0 -map 0:v:0 -codec:v:0 libx264 -pix_fmt yuv420p \
 -preset $preset -tune film -crf $crf -aq-mode $aqmode  -b:v $bitrate -maxrate $maxrate -bufsize $bufsize \
--profile:v:0 high -level 51 -x264opts:0 subme=$subme:me_range=$merange:rc_lookahead=10:me=dia:no_chroma_me:8x8dct=0:partitions=none  -force_key_frames:0 "expr:gte(t,0+n_forced*$keyframes)" \
+-profile:v:0 high -x264opts:0 subme=$subme:me_range=$merange:rc_lookahead=10:me=dia:no_chroma_me:8x8dct=0:partitions=none  -force_key_frames:0 "expr:gte(t,0+n_forced*$keyframes)" \
 -vf "setparams=color_primaries=bt709:color_trc=bt709:colorspace=bt709" -avoid_negative_ts disabled -max_muxing_queue_size 9999 \
 -c:a $targetaudioformat -ac 6 -ab $audiobitrate -map 0:a \
 -c:s copy -map 0:s? \
@@ -184,7 +185,7 @@ $ffmpeg -loglevel quiet -stats -init_hw_device cuda=cu:0 -filter_hw_device cu -h
 -i "$mkv" -y \
 -map 0:v:0 -codec:v:0 h264_nvenc \
 -preset p1 -cq:v $crf -b:v $bitrate -maxrate $maxrate -bufsize $bufsize \
--profile:v:0 high -level 51 -force_key_frames:0 "expr:gte(t,0+n_forced*$keyframes)" \
+-profile:v:0 high -force_key_frames:0 "expr:gte(t,0+n_forced*$keyframes)" \
 -vf "setparams=color_primaries=bt709:color_trc=bt709:colorspace=bt709,scale_cuda=format=yuv420p" -avoid_negative_ts disabled -max_muxing_queue_size 9999 \
 -c:a $targetaudioformat -ac 6 -ab $audiobitrate -map 0:a \
 -c:s copy -map 0:s? \
