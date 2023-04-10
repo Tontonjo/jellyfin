@@ -67,7 +67,8 @@
 # 8.4 - Add detection for Interlaced videos and convert to progressive format - Black magic: conversion has to sometimes be done 2 times - dont ask why.
 # 8.5 - Removed encoder level wich is usless and may cause problem for no reasons
 # 9.0 - Reworked task definition processing: Better, faster, Stronger - more future proof
-# 9.1 - Lots of small changes, try to reduce execution time using smarter positions for the variables definition tasks - removed channel layout check was causing problems somtimes, was there for a reason but dont remember which atm
+# 9.1 - Lots of small changes, try to reduce execution time using smarter positions for the variables definition tasks - removed channel layout check
+# 9.2 - fix for 10bit conversion
 
 # ------------- General Settings -------------------------
 inputpath="/media/movies"
@@ -76,14 +77,6 @@ entries=9999					# number of movies to process - set to a number higher than the
 ignore=""					# Work in progress - List of file, names or folder to ignore
 # ------------- GPU Mode Settings -------------------------
 gpuactive=0
-# ------------ Quality settings -----------------
-bitratefhd=9000000				# Used for ref for -force-video and to encode  - Used as maxrate and doubled for bufsize - typical values: bitrate 10014994 30044982
-bitrate4k=15000000				# Used for ref for -force-video and to encode  - Used as maxrate and doubled for bufsize - typical values: bitrate 10014994 30044982
-bufsizemultiplier=3				# Bufsize will be set to x times the bitrate set - smaller value means better respect of wanted bitrate, resulting in higher quality loss aswell :)
-setsize=30044982 				# File bigger will use crf_bigfile and smaller crf_smallfile
-crf_bigfile=20					# Jellyfin recommand value between 18 to 28 - The range of the CRF scale is 0–51, where 0 is lossless - 19 is visually identical to 0
-crf_smallfile=18				# Jellyfin recommand value between 18 to 28 - The range of the CRF scale is 0–51, where 0 is lossless - 19 is visually identical to 0
-diffratio=1.3					# Files under this ratio wont be converted when using -force-video cause it may be worthless depending on settings
 # ------------- Video Settings -------------------------
 unwantedcolormap="smpte2084|bt2020nc|bt2020"
 unwanted264format="10"
@@ -95,6 +88,14 @@ subme=9 							# Not used in GPU Decoding -1: Fastest - 2-5: Progressively bette
 me_range=20 						# Not used in GPU Decoding - MErange controls the max range of the motion search - default of 16 - useful on HD footage and for high-motion footage
 aqmode=3							# Not used in GPU Decoding
 keyframes=1
+# ------------ Quality settings -----------------
+bitratefhd=9000000				# Used for ref for -force-video and to encode  - Used as maxrate and doubled for bufsize - typical values: bitrate 10014994 30044982
+bitrate4k=15000000				# Used for ref for -force-video and to encode  - Used as maxrate and doubled for bufsize - typical values: bitrate 10014994 30044982
+bufsizemultiplier=3				# Bufsize will be set to x times the bitrate set - smaller value means better respect of wanted bitrate, resulting in higher quality loss aswell :)
+setsize=30044982 				# File bigger will use crf_bigfile and smaller crf_smallfile
+crf_bigfile=20					# Jellyfin recommand value between 18 to 28 - The range of the CRF scale is 0–51, where 0 is lossless - 19 is visually identical to 0
+crf_smallfile=18				# Jellyfin recommand value between 18 to 28 - The range of the CRF scale is 0–51, where 0 is lossless - 19 is visually identical to 0
+diffratio=1.3					# Files under this ratio wont be converted when using -force-video cause it may be worthless depending on settings
 #------------------- HDR Settings -------------------
 threshold=0.8 					# threshold is used to detect whether the scene has changed or not
 peak=100 					# Override signal/nominal/reference peak with this value
@@ -139,7 +140,7 @@ $ffmpeg -loglevel quiet -stats -init_hw_device cuda=cu:0 -filter_hw_device cu -h
 -profile:v:0 high -force_key_frames:0 "expr:gte(t,0+n_forced*$keyframes)" \
 -vf "hwupload=derive_device=cuda,tonemap_cuda=format=yuv420p:p=bt709:t=bt709:m=bt709:tonemap=hable:peak=$peak:desat=$desat:threshold=$threshold,hwdownload" \
 -avoid_negative_ts disabled -max_muxing_queue_size 9999 \
--c:a $targetaudioformat -ac 6 -ab $audiobitrate -map 0:a \
+-c:a $targetaudioformat -ab $audiobitrate -map 0:a \
 -c:s copy -map 0:s? \
 -movflags -use_metadata_tags -metadata title="$filename - HDR tonemap script from youtube.com/tontonjo" -metadata:s:v:0 title="Tonemaped" \
 -f matroska "$outputpath/$outputfile"
@@ -160,7 +161,7 @@ $ffmpeg -loglevel quiet -stats -i "$mkv" -y -threads 0 \
 gpuotherformat() {
 $ffmpeg -loglevel quiet -stats -init_hw_device cuda=cu:0 -filter_hw_device cu -hwaccel cuda -hwaccel_output_format cuda -threads 0 \
 -i "$mkv" -y \
--map 0:v:0 -codec:v:0 h264_nvenc \
+-map 0:v:0 -codec:v:0 h264_nvenc -pix_fmt yuv420p \
 -preset p1 -cq:v $crf -b:v $bitrate -maxrate $maxrate -bufsize $bufsize \
 -profile:v:0 high -force_key_frames:0 "expr:gte(t,0+n_forced*$keyframes)" \
 -vf "setparams=color_primaries=bt709:color_trc=bt709:colorspace=bt709" -avoid_negative_ts disabled -max_muxing_queue_size 9999 \
@@ -175,7 +176,7 @@ $ffmpeg -loglevel quiet -stats -i "$mkv" -y -threads 0 -map 0:v:0 -codec:v:0 lib
 -preset $preset -tune film -crf $crf -aq-mode $aqmode  -b:v $bitrate -maxrate $maxrate -bufsize $bufsize \
 -profile:v:0 high -x264opts:0 subme=$subme:me_range=$merange:rc_lookahead=10:me=dia:no_chroma_me:8x8dct=0:partitions=none  -force_key_frames:0 "expr:gte(t,0+n_forced*$keyframes)" \
 -vf "setparams=color_primaries=bt709:color_trc=bt709:colorspace=bt709" -avoid_negative_ts disabled -max_muxing_queue_size 9999 \
--c:a $targetaudioformat -ac 6 -ab $audiobitrate -map 0:a \
+-c:a $targetaudioformat -ab $audiobitrate -map 0:a \
 -c:s copy -map 0:s? \
 -movflags -use_metadata_tags -metadata title="$filename - Conversion script from youtube.com/tontonjo" -metadata:s:v:0 title=" " \
 -f matroska "$outputpath/$outputfile"
@@ -186,9 +187,9 @@ gpuotherformataudio() {
 $ffmpeg -loglevel quiet -stats -init_hw_device cuda=cu:0 -filter_hw_device cu -hwaccel cuda -hwaccel_output_format cuda -threads 0 \
 -i "$mkv" -y \
 -preset p1 -b:v $bitrate -maxrate $maxrate -bufsize $bufsize \
--map 0:v:0 -codec:v:0 h264_nvenc \
+-map 0:v:0 -codec:v:0 h264_nvenc -pix_fmt yuv420p \
 -vf "setparams=color_primaries=bt709:color_trc=bt709:colorspace=bt709" -avoid_negative_ts disabled -max_muxing_queue_size 9999 \
--c:a $targetaudioformat -ac 6 -ab $audiobitrate -map 0:a \
+-c:a $targetaudioformat -ab $audiobitrate -map 0:a \
 -c:s copy -map 0:s? \
 -movflags -use_metadata_tags -metadata title="$filename - Conversion script from youtube.com/tontonjo" -metadata:s:v:0 title=" " \
 -f matroska "$outputpath/$outputfile"
@@ -196,8 +197,8 @@ $ffmpeg -loglevel quiet -stats -init_hw_device cuda=cu:0 -filter_hw_device cu -h
 
 # CPU - Convert audio only
 audioonly() {
-$ffmpeg -stats -i "$mkv"  -y -c:v copy -map 0:v -map 0:a -threads 0 \
--c:a $targetaudioformat -ac 6 -ab $audiobitrate -max_muxing_queue_size 9999 \
+$ffmpeg -loglevel quiet -stats -i "$mkv"  -y -c:v copy -map 0:v -map 0:a -threads 0 \
+-c:a $targetaudioformat -ab $audiobitrate -max_muxing_queue_size 9999 \
 -c:s copy -map 0:s? \
 -movflags -use_metadata_tags -metadata title="$filename - Conversion script from youtube.com/tontonjo" -metadata:s:v:0 title=" " \
 -f matroska "$outputpath/$outputfile"
@@ -223,7 +224,7 @@ $ffmpeg -loglevel quiet -stats -i "$mkv" -c:v copy -map 0:v -threads 0 \
 unwanted_language() {
 $ffmpeg -loglevel quiet -stats -i "$mkv" -y -threads 0 \
 -c:v copy -map 0:v -map 0:a -map -0:a:$removeaudiotrackindex \
--c:a $targetaudioformat -ac 6 -ab $audiobitrate -max_muxing_queue_size 9999 \
+-c:a $targetaudioformat -ab $audiobitrate -max_muxing_queue_size 9999 \
 -c:s copy -map 0:s? \
 -f matroska "$outputpath/$outputfile"
 }
@@ -279,14 +280,13 @@ else
 	exitcode=$?
 	if [ $exitcode -ne 0 ]; then
 		echo "- Error happened while processing" >> $inputpath/conversionlog.txt
-		echo "- Error happened while processing"
+		
 		rm -rf "$outputpath/$file"
 	else
 		newfilesize=$(ls -l "$outputpath/$outputfile" | awk '{print $5}')
 		humanrdblnewfilesize=$(echo "$newfilesize" | numfmt --to=iec)
 		echo "- Convertion ended successfully" >> $inputpath/conversionlog.txt
-		echo "- Original filesize:  $humanrdblfilesize" >> $inputpath/conversionlog.txt
-		echo "- New filesize:		$humanrdblnewfilesize" >> $inputpath/conversionlog.txt
+		echo "- Original filesize: $humanrdblfilesize / New filesize: $humanrdblnewfilesize" >> $inputpath/conversionlog.txt
 	fi
 fi
 # Dont understand well yet, but interlaced TT files have to be processed 2 times to become "progressive"
