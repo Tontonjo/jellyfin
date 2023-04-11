@@ -68,10 +68,10 @@
 # 8.5 - Removed encoder level wich is usless and may cause problem for no reasons
 # 9.0 - Reworked task definition processing: Better, faster, Stronger - more future proof
 # 9.1 - Lots of small changes, try to reduce execution time using smarter positions for the variables definition tasks - removed channel layout check
-# 9.2 - fix for 10bit conversion
+# 9.2 - Fix for 10 bit conversion
 
 # ------------- General Settings -------------------------
-inputpath="/media/movies"
+inputpath="/media/series"
 outputpath=""					# Leave this empty to overwrite the original file when transcode was sucessfull
 entries=9999					# number of movies to process - set to a number higher than the number of entries in library to process everything, like 9999999 :-)
 ignore=""					# Work in progress - List of file, names or folder to ignore
@@ -118,6 +118,7 @@ IFS=$'\n'
 # ---------------- ENV VARIABLE -----------------------
 
 # GPU - Convert H265 HDR to X264 with tonemap
+# scale_cuda=format=yuv420p				Needed for h265 to x264 transcode
 hdr() {
 $ffmpeg -loglevel quiet -stats -init_hw_device cuda=cu:0 -filter_hw_device cu -hwaccel cuda -hwaccel_output_format cuda -threads 0 \
 -i "$mkv" -y \
@@ -146,7 +147,7 @@ $ffmpeg -loglevel quiet -stats -init_hw_device cuda=cu:0 -filter_hw_device cu -h
 -f matroska "$outputpath/$outputfile"
 }
 # CPU - Convert other format to h264
-otherformat() {
+cpu() {
 $ffmpeg -loglevel quiet -stats -i "$mkv" -y -threads 0 \
 -map 0:v:0 -codec:v:0 libx264 -pix_fmt yuv420p \
 -preset $preset -tune film -crf $crf -aq-mode $aqmode  -b:v $bitrate -maxrate $maxrate -bufsize $bufsize \
@@ -158,8 +159,43 @@ $ffmpeg -loglevel quiet -stats -i "$mkv" -y -threads 0 \
 -f matroska "$outputpath/$outputfile"
 }
 # GPU - Convert other format to h264
-gpuotherformat() {
+gpu() {
+$ffmpeg  -loglevel quiet -stats -init_hw_device cuda=cu:0 -filter_hw_device cu -hwaccel cuda -hwaccel_output_format cuda -threads 0 \
+-i "$mkv" -y \
+-map 0:v:0 -codec:v:0 h264_nvenc \
+-preset p1 -cq:v $crf -b:v $bitrate -maxrate $maxrate -bufsize $bufsize \
+-profile:v:0 high -force_key_frames:0 "expr:gte(t,0+n_forced*$keyframes)" \
+-vf "setparams=color_primaries=bt709:color_trc=bt709:colorspace=bt709,scale_cuda=format=yuv420p" -avoid_negative_ts disabled -max_muxing_queue_size 9999 \
+-c:a copy -map 0:a \
+-c:s copy -map 0:s? \
+-movflags -use_metadata_tags -metadata title="$filename - Conversion script from youtube.com/tontonjo" -metadata:s:v:0 title=" " \
+-f matroska "$outputpath/$outputfile"
+}
+# CPU - Convert other format to h264 and convert audio to AAC 6 channels
+cpu_audio() {
+$ffmpeg -loglevel quiet -stats -i "$mkv" -y -threads 0 -map 0:v:0 -codec:v:0 libx264 -pix_fmt yuv420p \
+-preset $preset -tune film -crf $crf -aq-mode $aqmode  -b:v $bitrate -maxrate $maxrate -bufsize $bufsize \
+-profile:v:0 high -x264opts:0 subme=$subme:me_range=$merange:rc_lookahead=10:me=dia:no_chroma_me:8x8dct=0:partitions=none  -force_key_frames:0 "expr:gte(t,0+n_forced*$keyframes)" \
+-vf "setparams=color_primaries=bt709:color_trc=bt709:colorspace=bt709" -avoid_negative_ts disabled -max_muxing_queue_size 9999 \
+-c:a $targetaudioformat -ab $audiobitrate -map 0:a \
+-c:s copy -map 0:s? \
+-movflags -use_metadata_tags -metadata title="$filename - Conversion script from youtube.com/tontonjo" -metadata:s:v:0 title=" " \
+-f matroska "$outputpath/$outputfile"
+}
+# GPU - Convert other format to h264 and convert audio to AAC 6 channels
+gpu_audio() {
 $ffmpeg -loglevel quiet -stats -init_hw_device cuda=cu:0 -filter_hw_device cu -hwaccel cuda -hwaccel_output_format cuda -threads 0 \
+-i "$mkv" -y \
+-preset p1 -b:v $bitrate -maxrate $maxrate -bufsize $bufsize \
+-map 0:v:0 -codec:v:0 h264_nvenc \
+-vf "setparams=color_primaries=bt709:color_trc=bt709:colorspace=bt709,scale_cuda=format=yuv420p" -avoid_negative_ts disabled -max_muxing_queue_size 9999 \
+-c:a $targetaudioformat -ab $audiobitrate -map 0:a \
+-c:s copy -map 0:s? \
+-movflags -use_metadata_tags -metadata title="$filename - Conversion script from youtube.com/tontonjo" -metadata:s:v:0 title=" " \
+-f matroska "$outputpath/$outputfile"
+}
+gpu_10bit() {
+$ffmpeg  -loglevel quiet -stats -init_hw_device cuda=cu:0 -filter_hw_device cu -hwaccel cuda -hwaccel_output_format cuda -threads 0 \
 -i "$mkv" -y \
 -map 0:v:0 -codec:v:0 h264_nvenc -pix_fmt yuv420p \
 -preset p1 -cq:v $crf -b:v $bitrate -maxrate $maxrate -bufsize $bufsize \
@@ -170,20 +206,7 @@ $ffmpeg -loglevel quiet -stats -init_hw_device cuda=cu:0 -filter_hw_device cu -h
 -movflags -use_metadata_tags -metadata title="$filename - Conversion script from youtube.com/tontonjo" -metadata:s:v:0 title=" " \
 -f matroska "$outputpath/$outputfile"
 }
-# CPU - Convert other format to h264 and convert audio to AAC 6 channels
-otherformataudio() {
-$ffmpeg -loglevel quiet -stats -i "$mkv" -y -threads 0 -map 0:v:0 -codec:v:0 libx264 -pix_fmt yuv420p \
--preset $preset -tune film -crf $crf -aq-mode $aqmode  -b:v $bitrate -maxrate $maxrate -bufsize $bufsize \
--profile:v:0 high -x264opts:0 subme=$subme:me_range=$merange:rc_lookahead=10:me=dia:no_chroma_me:8x8dct=0:partitions=none  -force_key_frames:0 "expr:gte(t,0+n_forced*$keyframes)" \
--vf "setparams=color_primaries=bt709:color_trc=bt709:colorspace=bt709" -avoid_negative_ts disabled -max_muxing_queue_size 9999 \
--c:a $targetaudioformat -ab $audiobitrate -map 0:a \
--c:s copy -map 0:s? \
--movflags -use_metadata_tags -metadata title="$filename - Conversion script from youtube.com/tontonjo" -metadata:s:v:0 title=" " \
--f matroska "$outputpath/$outputfile"
-}
-
-# GPU - Convert other format to h264 and convert audio to AAC 6 channels
-gpuotherformataudio() {
+gpu_10bit_audio() {
 $ffmpeg -loglevel quiet -stats -init_hw_device cuda=cu:0 -filter_hw_device cu -hwaccel cuda -hwaccel_output_format cuda -threads 0 \
 -i "$mkv" -y \
 -preset p1 -b:v $bitrate -maxrate $maxrate -bufsize $bufsize \
@@ -194,7 +217,6 @@ $ffmpeg -loglevel quiet -stats -init_hw_device cuda=cu:0 -filter_hw_device cu -h
 -movflags -use_metadata_tags -metadata title="$filename - Conversion script from youtube.com/tontonjo" -metadata:s:v:0 title=" " \
 -f matroska "$outputpath/$outputfile"
 }
-
 # CPU - Convert audio only
 audioonly() {
 $ffmpeg -loglevel quiet -stats -i "$mkv"  -y -c:v copy -map 0:v -map 0:a -threads 0 \
@@ -233,13 +255,13 @@ interlaced() {
 			echo "- File is interlaced - converting to progressive" >> $inputpath/conversionlog.txt
 				if [ "$gpuactive" -eq "0" ]; then
 					echo "- Processing interlaced video only using CPU" >> $inputpath/conversionlog.txt
-					# Run ffmpeg command otherformataudio
-					transcodetask=otherformat
+					# Run ffmpeg command cpu_audio
+					transcodetask=cpu
 					runtranscode
 				else
 					echo "- Processing interlaced video video only using GPU" >> $inputpath/conversionlog.txt
-					# Run ffmpeg command gpuotherformataudio
-					transcodetask=gpuotherformat
+					# Run ffmpeg command gpu_audio
+					transcodetask=gpu
 					runtranscode
 				fi
 }
@@ -255,6 +277,7 @@ if [ -z "$outputpath" ]; then
 	  echo "- No outputpath specified, file will be overwritten on success" >> $inputpath/conversionlog.txt
       outputpath=$(dirname "$mkv")
 	  outputfile="$file.tmp"
+	  echo "Video conversion score: $conversionscore"
 	  $transcodetask
 	  exitcode=$?
 		if [ $exitcode -ne 0 ]; then
@@ -276,6 +299,7 @@ else
 	echo "- Outputpath specified - file will not be overwritten" >> $inputpath/conversionlog.txt
 	mkdir -p $outputpath
 	outputfile="$file"
+	echo "Video conversion score: $conversionscore"
     $transcodetask
 	exitcode=$?
 	if [ $exitcode -ne 0 ]; then
@@ -401,7 +425,7 @@ for mkv in `find $inputpath | grep .mkv | sort -h | head -n $entries`; do
 		fi
 	elif  echo "$ffprobeoutput" | grep profile | grep -Eqi "$unwanted264format" ; then
 			echo "- Files is 10bit" >> $inputpath/conversionlog.txt
-			videoscore=10
+			videoscore=12
 	fi
 
 	if echo "$ffprobeoutput" | grep 'field_order' | grep -Eqi "$unwantedfieldorder" ; then
@@ -438,7 +462,7 @@ for mkv in `find $inputpath | grep .mkv | sort -h | head -n $entries`; do
 	elif  [[ $1 = "-video" ]]; then 
 		# Transcode Video only
 		echo "- Converting Video to h264 8 bits" >> $inputpath/conversionlog.txt
-		transcodetask=gpuotherformat
+		transcodetask=gpu
 	elif  [[ $1 = "-rename" ]]; then 
 		# Rename video track
 		echo "- Renaming video track with $filename" >> $inputpath/conversionlog.txt
@@ -452,21 +476,37 @@ for mkv in `find $inputpath | grep .mkv | sort -h | head -n $entries`; do
 	elif [ "$conversionscore" -eq "30" ]; then
 		echo "- Video score: $conversionscore - transcode task: hdr" >> $inputpath/conversionlog.txt
 		transcodetask=hdr
+	# equal 13 means 10 bit video + audio
+	elif [ "$conversionscore" -eq "13" ]; then
+		echo "- Video score: $conversionscore - transcode task: cpu_audio" >> $inputpath/conversionlog.txt
+		if [ "$gpuactive" -eq "0" ]; then
+			transcodetask=cpu_audio
+		else
+			transcodetask=gpu_10bit_audio
+		fi	
+	# equal 12 means 10 bit video
+	elif [ "$conversionscore" -eq "12" ]; then
+		echo "- Video score: $conversionscore - transcode task: cpu_audio" >> $inputpath/conversionlog.txt
+		if [ "$gpuactive" -eq "0" ]; then
+			transcodetask=cpu
+		else
+			transcodetask=gpu_10bit
+		fi
 	# above 10 means Audio + Video
 	elif [ "$conversionscore" -gt "10" ]; then
-		echo "- Video score: $conversionscore - transcode task: otherformataudio" >> $inputpath/conversionlog.txt
+		echo "- Video score: $conversionscore - transcode task: cpu_audio" >> $inputpath/conversionlog.txt
 		if [ "$gpuactive" -eq "0" ]; then
-			transcodetask=otherformataudio
+			transcodetask=cpu_audio
 		else
-			transcodetask=gpuotherformataudio
+			transcodetask=gpu_audio
 		fi
 	#  equal to 10 means video only				
 	elif [ "$conversionscore" -eq "10" ]; then
-		echo "- Video score: $conversionscore - transcode task: otherformat" >> $inputpath/conversionlog.txt
+		echo "- Video score: $conversionscore - transcode task: cpu" >> $inputpath/conversionlog.txt
 		if [ "$gpuactive" -eq "0" ]; then
-			transcodetask=otherformat
+			transcodetask=cpu
 		else
-			transcodetask=gpuotherformat
+			transcodetask=gpu
 		fi
 	# equal to 1 means Audio only		
 	elif [ "$conversionscore" -eq "1" ]; then
