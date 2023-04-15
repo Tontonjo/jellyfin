@@ -69,7 +69,7 @@
 # 9.0 - Reworked task definition processing: Better, faster, Stronger - more future proof
 # 9.1 - Lots of small changes, try to reduce execution time using smarter positions for the variables definition tasks - removed channel layout check
 # 9.2 - Fix for 10 bit conversion
-
+# 9.3 - Fix ignored list bypassing everything if empty
 # ------------- General Settings -------------------------
 inputpath="/media/series"
 outputpath=""					# Leave this empty to overwrite the original file when transcode was sucessfull
@@ -382,9 +382,11 @@ for mkv in `find $inputpath | grep .mkv | sort -h | head -n $entries`; do
 	echo "$mkv" >> $inputpath/conversionlog.txt
 	echo "- Processing $mkv"
 	# Checking if file is in ignore list
-	if echo "$mkv" | grep -Eqwi "$ignore" ; then
-			echo "- File is in ignore list $ignore" >> $inputpath/conversionlog.txt
-			continue
+	if [ -n "$ignore" ]; then
+		if echo "$mkv" | grep -Eqwi "$ignore" ; then
+				echo "- File is in ignore list $ignore" >> $inputpath/conversionlog.txt
+				continue
+		fi
 	fi
 	ffprobeoutput=$($ffprobe -hide_banner -show_streams "$mkv"  2>&1)
 	# If resolution is smaller than 1920 use bitratefhd else use 4k
