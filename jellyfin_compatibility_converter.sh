@@ -68,10 +68,12 @@
 # 8.5 - Removed encoder level wich is usless and may cause problem for no reasons
 # 9.0 - Reworked task definition processing: Better, faster, Stronger - more future proof
 # 9.1 - Lots of small changes, try to reduce execution time using smarter positions for the variables definition tasks - removed channel layout check
-# 9.2 - Fix for 10 bit conversion
+# 9.2 - Finally understood that 10 bit was causing trouble - fixed it by adding a special task
 # 9.3 - Fix ignored list bypassing everything if empty
+# 9.4 - Small enhancements for the logs
+
 # ------------- General Settings -------------------------
-inputpath="/media/series"
+inputpath="/media/movies"
 outputpath=""					# Leave this empty to overwrite the original file when transcode was sucessfull
 entries=9999					# number of movies to process - set to a number higher than the number of entries in library to process everything, like 9999999 :-)
 ignore=""					# Work in progress - List of file, names or folder to ignore
@@ -134,9 +136,9 @@ $ffmpeg -loglevel quiet -stats -init_hw_device cuda=cu:0 -filter_hw_device cu -h
 }
 # GPU - Convert H265 HDR to X264 with tonemap and convert audio to AAC 6 channels
 hdraudio() {
-$ffmpeg -loglevel quiet -stats -init_hw_device cuda=cu:0 -filter_hw_device cu -hwaccel cuda -hwaccel_output_format cuda -threads 0 \
+$ffmpeg -stats -init_hw_device cuda=cu:0 -filter_hw_device cu -hwaccel cuda -hwaccel_output_format cuda -threads 0 \
 -i "$mkv" -y \
--map 0:v:0 -codec:v:0 h264_nvenc -pix_fmt yuv420p -threads 0 \
+-map 0:v:0 -codec:v:0 h264_nvenc -threads 0 \
 -preset $preset -b:v $bitrate -maxrate $maxrate -bufsize $bufsize \
 -profile:v:0 high -force_key_frames:0 "expr:gte(t,0+n_forced*$keyframes)" \
 -vf "hwupload=derive_device=cuda,tonemap_cuda=format=yuv420p:p=bt709:t=bt709:m=bt709:tonemap=hable:peak=$peak:desat=$desat:threshold=$threshold,hwdownload" \
@@ -472,15 +474,12 @@ for mkv in `find $inputpath | grep .mkv | sort -h | head -n $entries`; do
 	# ------------- Start processing based on video score defined above
 	# above 30 means audio and hdr content
 	elif [ "$conversionscore" -gt "30" ]; then
-		echo "- Video score: $conversionscore - transcode task: hdraudio" >> $inputpath/conversionlog.txt
 		transcodetask=hdraudio
 	# above 20 means HDR content
 	elif [ "$conversionscore" -eq "30" ]; then
-		echo "- Video score: $conversionscore - transcode task: hdr" >> $inputpath/conversionlog.txt
 		transcodetask=hdr
 	# equal 13 means 10 bit video + audio
 	elif [ "$conversionscore" -eq "13" ]; then
-		echo "- Video score: $conversionscore - transcode task: cpu_audio" >> $inputpath/conversionlog.txt
 		if [ "$gpuactive" -eq "0" ]; then
 			transcodetask=cpu_audio
 		else
@@ -488,7 +487,6 @@ for mkv in `find $inputpath | grep .mkv | sort -h | head -n $entries`; do
 		fi	
 	# equal 12 means 10 bit video
 	elif [ "$conversionscore" -eq "12" ]; then
-		echo "- Video score: $conversionscore - transcode task: cpu_audio" >> $inputpath/conversionlog.txt
 		if [ "$gpuactive" -eq "0" ]; then
 			transcodetask=cpu
 		else
@@ -496,7 +494,6 @@ for mkv in `find $inputpath | grep .mkv | sort -h | head -n $entries`; do
 		fi
 	# above 10 means Audio + Video
 	elif [ "$conversionscore" -gt "10" ]; then
-		echo "- Video score: $conversionscore - transcode task: cpu_audio" >> $inputpath/conversionlog.txt
 		if [ "$gpuactive" -eq "0" ]; then
 			transcodetask=cpu_audio
 		else
@@ -504,20 +501,20 @@ for mkv in `find $inputpath | grep .mkv | sort -h | head -n $entries`; do
 		fi
 	#  equal to 10 means video only				
 	elif [ "$conversionscore" -eq "10" ]; then
-		echo "- Video score: $conversionscore - transcode task: cpu" >> $inputpath/conversionlog.txt
 		if [ "$gpuactive" -eq "0" ]; then
 			transcodetask=cpu
 		else
 			transcodetask=gpu
 		fi
+		
 	# equal to 1 means Audio only		
 	elif [ "$conversionscore" -eq "1" ]; then
-			echo "- Video score: $conversionscore - transcode task: audioonly" >> $inputpath/conversionlog.txt
 			transcodetask=audioonly
 	else
 		# if none of the above was needed - continue
 		continue
 	fi
+	echo "- Video score: $conversionscore - transcode task: $transcodetask" >> $inputpath/conversionlog.txt
 	runtranscode
 	unset audioscore
 	unset hdrscore
