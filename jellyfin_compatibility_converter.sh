@@ -71,6 +71,7 @@
 # 9.2 - Finally understood that 10 bit was causing trouble - fixed it by adding a special task
 # 9.3 - Fix ignored list bypassing everything if empty
 # 9.4 - Small enhancements for the logs
+# 9.5 - Removed the "crf check" which was originally intended to avoid too big files. now if you want to reduce or contain size, adjust bitrate and use --force-video. small enhencements
 
 # ------------- General Settings -------------------------
 inputpath="/media/movies"
@@ -78,7 +79,7 @@ outputpath=""					# Leave this empty to overwrite the original file when transco
 entries=9999					# number of movies to process - set to a number higher than the number of entries in library to process everything, like 9999999 :-)
 ignore=""					# Work in progress - List of file, names or folder to ignore
 # ------------- GPU Mode Settings -------------------------
-gpuactive=0
+gpuactive=1
 # ------------- Video Settings -------------------------
 unwantedcolormap="smpte2084|bt2020nc|bt2020"
 unwanted264format="10"
@@ -95,9 +96,10 @@ bitratefhd=9000000				# Used for ref for -force-video and to encode  - Used as m
 bitrate4k=15000000				# Used for ref for -force-video and to encode  - Used as maxrate and doubled for bufsize - typical values: bitrate 10014994 30044982
 bufsizemultiplier=3				# Bufsize will be set to x times the bitrate set - smaller value means better respect of wanted bitrate, resulting in higher quality loss aswell :)
 setsize=30044982 				# File bigger will use crf_bigfile and smaller crf_smallfile
-crf_bigfile=20					# Jellyfin recommand value between 18 to 28 - The range of the CRF scale is 0–51, where 0 is lossless - 19 is visually identical to 0
-crf_smallfile=18				# Jellyfin recommand value between 18 to 28 - The range of the CRF scale is 0–51, where 0 is lossless - 19 is visually identical to 0
-diffratio=1.3					# Files under this ratio wont be converted when using -force-video cause it may be worthless depending on settings
+crf=19							# CRF to use
+#crf_bigfile=20					# Jellyfin recommand value between 18 to 28 - The range of the CRF scale is 0–51, where 0 is lossless - 19 is visually identical to 0
+#crf_smallfile=18				# Jellyfin recommand value between 18 to 28 - The range of the CRF scale is 0–51, where 0 is lossless - 19 is visually identical to 0
+diffratio=1.3					# Files under this ratio wont be converted when using --force-video cause it may be worthless depending on settings
 #------------------- HDR Settings -------------------
 threshold=0.8 					# threshold is used to detect whether the scene has changed or not
 peak=100 					# Override signal/nominal/reference peak with this value
@@ -136,7 +138,7 @@ $ffmpeg -loglevel quiet -stats -init_hw_device cuda=cu:0 -filter_hw_device cu -h
 }
 # GPU - Convert H265 HDR to X264 with tonemap and convert audio to AAC 6 channels
 hdraudio() {
-$ffmpeg -loglevel quiet -stats -init_hw_device cuda=cu:0 -filter_hw_device cu -hwaccel cuda -hwaccel_output_format cuda -threads 0 \
+$ffmpeg -stats -init_hw_device cuda=cu:0 -filter_hw_device cu -hwaccel cuda -hwaccel_output_format cuda -threads 0 \
 -i "$mkv" -y \
 -map 0:v:0 -codec:v:0 h264_nvenc -threads 0 \
 -preset $preset -b:v $bitrate -maxrate $maxrate -bufsize $bufsize \
@@ -227,6 +229,12 @@ $ffmpeg -loglevel quiet -stats -i "$mkv"  -y -c:v copy -map 0:v -map 0:a -thread
 -movflags -use_metadata_tags -metadata title="$filename - Conversion script from youtube.com/tontonjo" -metadata:s:v:0 title=" " \
 -f matroska "$outputpath/$outputfile"
 }
+remove_subtitles() {
+$ffmpeg -loglevel quiet -stats -i "$mkv"  -y -c:v copy -map 0:v -map 0:a -threads 0 \
+-c:a copy -map 0:a \
+-movflags -use_metadata_tags -metadata title="$filename - Conversion script from youtube.com/tontonjo" -metadata:s:v:0 title=" " \
+-f matroska "$outputpath/$outputfile"
+}
 # CPU - Smooth video using minterpolate (fast but not very efficient)
 smooth() {
 # https://blog.programster.org/ffmpeg-create-smooth-videos-with-frame-interpolation
@@ -253,7 +261,6 @@ $ffmpeg -loglevel quiet -stats -i "$mkv" -y -threads 0 \
 -f matroska "$outputpath/$outputfile"
 }
 interlaced() {
-			
 			echo "- File is interlaced - converting to progressive" >> $inputpath/conversionlog.txt
 				if [ "$gpuactive" -eq "0" ]; then
 					echo "- Processing interlaced video only using CPU" >> $inputpath/conversionlog.txt
@@ -274,7 +281,7 @@ runtranscode() {
 	humanrdblfilesize=$(echo "$filesize" | numfmt --to=iec)
 	file=$(basename "$mkv")
 	filename=${file::-4}
-	crfcheck
+	#crfcheck
 if [ -z "$outputpath" ]; then
 	  echo "- No outputpath specified, file will be overwritten on success" >> $inputpath/conversionlog.txt
       outputpath=$(dirname "$mkv")
@@ -328,16 +335,16 @@ if [ "$interlaced" -eq "1" ]; then
 fi
 }
 
-crfcheck() {
-			# This is intended to try to avoid big files when converting huge 265 files
-			if (( $filesize > $setsize )); then
-				echo "- File size is greater than set size use CRF $crf_bigfile" >> $inputpath/conversionlog.txt
-				crf=$crf_bigfile
-			else
-				echo "- File size is smaller than set size use CRF $crf_smallfile" >> $inputpath/conversionlog.txt
-				crf=$crf_smallfile
-			fi
-}
+##crfcheck() {
+#			# This is intended to try to avoid big files when converting huge 265 files
+#			if (( $filesize > $setsize )); then
+#				echo "- File size is greater than set size use CRF $crf_bigfile" >> $inputpath/conversionlog.txt
+#				crf=$crf_bigfile
+#			else
+#				echo "- File size is smaller than set size use CRF $crf_smallfile" >> $inputpath/conversionlog.txt
+#				crf=$crf_smallfile
+#			fi
+#}
 
 removeunwantedlanguage() {
 		# Get title and index, filter to get line abve the unwanted language, remove what's before = then substract 1 as this number ignore the video track
@@ -421,12 +428,12 @@ for mkv in `find $inputpath | grep .mkv | sort -h | head -n $entries`; do
 	if  echo "$ffprobeoutput" | grep codec_name | grep -qi "$unwanted265format" ; then
 		echo "- Files is H265" >> $inputpath/conversionlog.txt
 		videoscore=10
-		if echo "$ffprobeoutput" | grep -Eqi "$unwantedcolormap" ; then
-			echo "- Files is HDR" >> $inputpath/conversionlog.txt
-			hdrscore=20
-		else
-			hdrscore=0
-		fi
+		#if echo "$ffprobeoutput" | grep -Eqi "$unwantedcolormap" ; then
+		#	echo "- Files is HDR" >> $inputpath/conversionlog.txt
+		#	hdrscore=20
+		#else
+		#	hdrscore=0
+		#fi
 	elif  echo "$ffprobeoutput" | grep profile | grep -Eqi "$unwanted264format" ; then
 			echo "- Files is 10bit" >> $inputpath/conversionlog.txt
 			videoscore=12
@@ -443,12 +450,12 @@ for mkv in `find $inputpath | grep .mkv | sort -h | head -n $entries`; do
 		if (( $(echo "$filebitrateratio > $diffratio" | bc -l) )); then
 			echo "- File bitrate is above wanted bitrate" >> $inputpath/conversionlog.txt
 			videoscore=10
+		else
+		echo "- File bitrate is below wanted bitrate" >> $inputpath/conversionlog.txt
+		videoscore=0
 		fi
 	fi
-	if [ -z "$videoscore" ]; then
-	videoscore=0
-	fi
-	
+
 	conversionscore=$(($videoscore + $hdrscore + $audioscore))
 	
 	# ------------- Start processing based on flags
@@ -467,6 +474,10 @@ for mkv in `find $inputpath | grep .mkv | sort -h | head -n $entries`; do
 		# Transcode Video only
 		echo "- Converting Video to h264 8 bits" >> $inputpath/conversionlog.txt
 		transcodetask=gpu
+	elif  [[ $1 = "-remove-subtitles" ]]; then 
+		# just remove all subtitles in files
+		echo "- Removing Subtitles in movie file" >> $inputpath/conversionlog.txt
+		transcodetask=remove_subtitles
 	elif  [[ $1 = "-rename" ]]; then 
 		# Rename video track
 		echo "- Renaming video track with $filename" >> $inputpath/conversionlog.txt
