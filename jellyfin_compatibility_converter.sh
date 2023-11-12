@@ -72,6 +72,7 @@
 # 9.3 - Fix ignored list bypassing everything if empty
 # 9.4 - Small enhancements for the logs
 # 9.5 - Removed the "crf check" which was originally intended to avoid too big files. now if you want to reduce or contain size, adjust bitrate and use --force-video. small enhencements
+# 9.6 - Add option to set tonemapping, use with caution
 
 # ------------- General Settings -------------------------
 inputpath="/media/movies"
@@ -80,6 +81,7 @@ entries=9999					# number of movies to process - set to a number higher than the
 ignore=""					# Work in progress - List of file, names or folder to ignore
 # ------------- GPU Mode Settings -------------------------
 gpuactive=1
+tonemapping=0	# Only works with gpuactive=1 - test on some samples to ensure the quality is Ok as i encountered some strange brightmess / color behavior
 # ------------- Video Settings -------------------------
 unwantedcolormap="smpte2084|bt2020nc|bt2020"
 unwanted264format="10"
@@ -428,12 +430,15 @@ for mkv in `find $inputpath | grep .mkv | sort -h | head -n $entries`; do
 	if  echo "$ffprobeoutput" | grep codec_name | grep -qi "$unwanted265format" ; then
 		echo "- Files is H265" >> $inputpath/conversionlog.txt
 		videoscore=10
-		#if echo "$ffprobeoutput" | grep -Eqi "$unwantedcolormap" ; then
-		#	echo "- Files is HDR" >> $inputpath/conversionlog.txt
-		#	hdrscore=20
-		#else
-		#	hdrscore=0
-		#fi
+  		if [ "$tonemapping" -eq "1" ]; then
+    		echo "- Tonemapping mode enabled" >> $inputpath/conversionlog.txt
+			if echo "$ffprobeoutput" | grep -Eqi "$unwantedcolormap" ; then
+				echo "- Files is HDR" >> $inputpath/conversionlog.txt
+				hdrscore=20
+			else
+				hdrscore=0
+			fi
+  		fi
 	elif  echo "$ffprobeoutput" | grep profile | grep -Eqi "$unwanted264format" ; then
 			echo "- Files is 10bit" >> $inputpath/conversionlog.txt
 			videoscore=12
