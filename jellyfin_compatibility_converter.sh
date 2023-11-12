@@ -81,7 +81,7 @@ entries=9999					# number of movies to process - set to a number higher than the
 ignore=""					# Work in progress - List of file, names or folder to ignore
 # ------------- GPU Mode Settings -------------------------
 gpuactive=1
-tonemapping=0	# Only works with gpuactive=1 - test on some samples to ensure the quality is Ok as i encountered some strange brightmess / color behavior
+tonemapping=0	# Only works with gpuactive=1 - test on some samples to ensure the quality is Ok as i encountered some strange brightness / color behavior
 # ------------- Video Settings -------------------------
 unwantedcolormap="smpte2084|bt2020nc|bt2020"
 unwanted264format="10"
